@@ -1,8 +1,8 @@
 Glosario
 
-Programación serial.
+Programación serial: secuencia, línea de ensamblaje, pasos hechos en serie, monohilo.
 
-Programación concurrente.
+Programación concurrente: se realizan varias acciones por unidad de tiempo. Similar a multitasking.
 
 Programación paralela.
 
@@ -10,7 +10,15 @@ Concurrencia de tareas.
 
 Paralelismo de datos.
 
-Hilo de ejecución.
+Recursos compartidos: gran volumen de recursos que es compartido entre varios actores. Hay un orden para acceder a ellos. Hay más competencia. Algunos recursos que se pueden compartir son: CPU, memoria, dispositivos periféricos, red, tiempo de atención del sistema operativo, etc.
+
+Recursos distribuidos: los recursos están distribuidos entre todos los actores, cada uno tiene un poco. Los recursos no están acumulados en un solo lugar. No hay competencia.
+
+Cores (núcleos): solo ejecutan una cosa a la vez, son la cantidad de procesos que se pueden ejecutar concurrentemente al mismo tiempo.
+
+Procesos: instancias de programas "vivos" (que suceden en este momento). Generalmente no les interesa lo que hacen los demás programas, son independientes y no comparten recursos.
+
+Hilo de ejecución: son parecidos a los procesos, pero interdependientes. Dependen de algún otro hilo o de un proceso padre, no pueden auto crearse o reproducirse sin el sistema operativo o sin un hilo padre. Si el hilo padre muere los hilos hijos también. Se relacionan con los recursos compartidos. Comparten los mismos espacios de memoria, por lo que pueden modificar los datos de otros hilos que no tienen nada que ver.
 
 Indeterminismo.
 
