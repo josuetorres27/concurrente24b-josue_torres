@@ -16,9 +16,9 @@ Recursos distribuidos: los recursos están distribuidos entre todos los actores,
 
 Cores (núcleos): solo ejecutan una cosa a la vez, son la cantidad de procesos que se pueden ejecutar concurrentemente al mismo tiempo.
 
-Procesos: instancias de programas "vivos" (que suceden en este momento). Generalmente no les interesa lo que hacen los demás programas, son independientes y no comparten recursos. Son unidades administrativas de los programas.
+Procesos: instancias de programas "vivos" (que suceden en este momento). Generalmente no les interesa lo que hacen los demás programas, son independientes y no comparten recursos. Son unidades administrativas de los programas. Tienen su propio code segment, data segment, etc.
 
-Hilo de ejecución: son parecidos a los procesos, pero interdependientes. Dependen de algún otro hilo o de un proceso padre, no pueden auto crearse o reproducirse sin el sistema operativo o sin un hilo padre. Si el hilo padre muere los hilos hijos también. Se relacionan con los recursos compartidos. Comparten los mismos espacios de memoria, por lo que pueden modificar los datos de otros hilos que no tienen nada que ver.
+Hilo de ejecución: arreglo de valores que el SO carga en los registros del CPU y permiten ejecutar código en ella. Son parecidos a los procesos, pero interdependientes. Dependen de algún otro hilo o de un proceso padre, no pueden auto crearse o reproducirse sin el sistema operativo o sin un hilo padre. Si el hilo padre muere los hilos hijos también. Se relacionan con los recursos compartidos. Comparten los mismos espacios de memoria (son memoria compartida), por lo que pueden modificar los datos de otros hilos que no tienen nada que ver.
 
 Indeterminismo.
 
@@ -53,3 +53,13 @@ Comunicación punto a punto entre procesos.
 Comunicación colectiva entre procesos.
 
 Reducción.
+
+Memoria de código: espacio de memoria donde el código (instrucciones) se copia ya codificado en lenguaje máquina.
+
+Memoria de datos: memoria estática, variables globales del programa, variables constantes.
+
+Stack frame: sección del stack dedicada a un llamado de función en particular.
+
+PC: program counter.
+
+RSP: stack pointer.
