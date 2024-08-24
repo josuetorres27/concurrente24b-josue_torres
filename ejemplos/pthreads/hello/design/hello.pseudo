@@ -1,8 +1,8 @@
-procedure main
-  create thread(greet)
-  print("Hello from main thread")
+procedure main:
+  create_thread(greet)
+  print "Hello from main thread"
 end procedure
 
-procedure greet
-  print("Hello from secondary thread")
+procedure greet:
+  print "Hello from secondary thread"
 end procedure
