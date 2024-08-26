@@ -1,4 +1,4 @@
-### Ejercicio 4 [recursive_hello]
+## Ejercicio 4 [recursive_hello]
 
 * Copie su ejemplos/pthreads/hello a ejercicios/pthreads/recursive_hello. Puede renombrar ejercicios/pthreads/recursive_hello/src/hello.c a recursive_hello.c o si lo prefiere, main.c.
 
@@ -8,18 +8,18 @@
 
 * Modifique el procedimiento main() para crear una variable local de tipo size_t inicializada en 2. Envíe este número como parámetro de la subrutina greet() que correrá en el hilo secundario.
 
-# Predicción de la salida del programa:
+### Predicción de la salida del programa:
 
 Hello from main thread
 Hello from secondary thread. Received number: 2
 Hello from secondary thread. Received number: 1
 Goodbye! Received number: 0
 
-# Salida real del programa:
+### Salida real del programa:
 
 Hello from main thread
 Hello from secondary thread. Received number: 2
 Hello from secondary thread. Received number: 1
 Goodbye! Received number: 0
 
-# La predicción fue acertada
+### La predicción fue acertada
