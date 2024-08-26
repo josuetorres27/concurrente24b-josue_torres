@@ -20,7 +20,7 @@
 
 * Hilo de ejecución: arreglo de valores que el SO carga en los registros del CPU y permiten ejecutar código en ella. Son parecidos a los procesos, pero interdependientes. Dependen de algún otro hilo o de un proceso padre, no pueden auto crearse o reproducirse sin el sistema operativo o sin un hilo padre. Si el hilo padre muere los hilos hijos también. Se relacionan con los recursos compartidos. Comparten los mismos espacios de memoria (son memoria compartida), por lo que pueden modificar los datos de otros hilos que no tienen nada que ver.
 
-* Indeterminismo:
+* Indeterminismo: falta de conocimiento acerca de cuál hilo se va a ejecutar primero, o cuál hilo va a terminar primero. Se ejecutan hilos de un mismo proceso, pero no se sabe cuál se va a ejecutar (va a comenzar) primero. El programador no lo controla.
 
 * Memoria privada y compartida:
 
