@@ -1,0 +1,15 @@
+procedure main:
+  declare thread as pthread_t
+  declare number as size_t and initialize to 2
+
+  // Crear un hilo que ejecute la función greet, pasando la dirección de number
+  set error to pthread_create(thread, NULL, greet, &number)
+
+  if error is 0:
+    print "Hello from main thread"
+    // Esperar a que el hilo secundario termine su ejecución
+    pthread_join(thread, NULL)
+  else:
+    print "Error: could not create secondary thread"
+  end if
+end procedure
