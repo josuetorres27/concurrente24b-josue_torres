@@ -50,7 +50,7 @@ int main() {
 
 // Variante 1
 void* variant1(void* arg) {
-  int* num = (int*)malloc(sizeof(int)); // Reservar la memoria para el número random
+  int* num = (int*) malloc(sizeof(int)); // Reservar la memoria para el número random
   if (num == NULL) { // Comprobar si la memoria se reservó correctamente
     fprintf(stderr, "Error allocating memory for number 1\n");
     pthread_exit(NULL);
