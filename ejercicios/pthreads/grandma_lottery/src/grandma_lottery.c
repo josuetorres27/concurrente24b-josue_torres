@@ -3,83 +3,64 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 // Definición de las funciones para generar los números
-void* number1(void* arg);
-void* number2(void* arg);
-void* number1_false_adress(void* arg)
-void* number2_false_adress(void* arg)
+void* variant1(void* arg);
+void* variant2(void* arg);
+
+// Hilo principal
+int main() {
+  pthread_t grandson1;
+  pthread_t grandson2;
+  void* number1 = NULL;
+  void* number2 = NULL;
+
+  srand(time(NULL)); // Inicializar semilla para los números random
+
+  // Crear hilos para la variante 1
+  int error1 = pthread_create(&grandson1, NULL, variant1, NULL);
+  int error2 = pthread_create(&grandson2, NULL, variant1, NULL);
+
+  if (error1 == 0 && error2 == 0) { // Comprobar si los hilos se crearon correctamente
+    pthread_join(grandson1, &number1); // Esperar a que el hilo termine y obtener el número
+    printf("Grandson 1 number (variant 1) is: %d\n", *(int*)number1);
+    free(number1); // Liberar la memoria asignada al número
+    pthread_join(grandson2, &number2);
+    printf("Grandson 2 number (variant 1) is: %d\n", *(int*)number2);
+    free(number2);
+  } else {
+    fprintf(stderr, "Error creating threads for variant 1\n");
+  }
+
+  // Crear hilos para la variante 2
+  error1 = pthread_create(&grandson1, NULL, variant2, NULL);
+  error2 = pthread_create(&grandson2, NULL, variant2, NULL);
+
+  if (error1 == 0 && error2 == 0) {
+    pthread_join(grandson1, &number1);
+    printf("Grandson 1 number (variant 2) is: %d\n", (int)(intptr_t)number1);
+    pthread_join(grandson2, &number2);
+    printf("Grandson 2 number (variant 2) is: %d\n", (int)(intptr_t)number2);
+  } else {
+    fprintf(stderr, "Error creating threads for variant 2\n");
+  }
+  return 0;
+}
 
 // Variante 1
-
-void* number1(void* arg) {
-  int* num1 = malloc(sizeof(int)); // Reservar la memoria para el número random
-  if (num1 == NULL) {
+void* variant1(void* arg) {
+  int* num = (int*)malloc(sizeof(int)); // Reservar la memoria para el número random
+  if (num == NULL) { // Comprobar si la memoria se reservó correctamente
     fprintf(stderr, "Error allocating memory for number 1\n");
     pthread_exit(NULL);
   }
-  *num1 = rand() % 100; // Generar número random entre 00 y 99
-  pthread_exit((void*) num1); // Retornar la dirección de memoria
-}
-
-void* number2(void* arg) {
-  int* num2 = malloc(sizeof(int)); // Reservar la memoria para el número random
-  if (num2 == NULL) {
-    fprintf(stderr, "Error allocating memory for number 2\n");
-    pthread_exit(NULL);
-  }
-  *num2 = rand() % 100; // Generar número random entre 00 y 99
-  pthread_exit((void*) num2); // Retornar la dirección de memoria
+  *num = rand() % 100; // Generar número random entre 0 y 99
+  pthread_exit((void*)num); // Retornar la dirección de memoria
 }
 
 // Variante 2
-
-void* number1_false_adress(void* arg) {
-    int num1 = rand() % 100; // Número random entre 00 y 99
-    return (void*)(intptr_t) num1; // Convertir el número a una falsa dirección de memoria
-}
-
-void* number2_false_adress(void* arg) {
-    int num2 = rand() % 100; // Número random entre 00 y 99
-    return (void*)(intptr_t) num2; // Convertir el número a una falsa dirección de memoria
-}
-
-// Hilo principal
-
-int main() {
-  pthread_t grandch1, grandch2; // Hilos de los nietos
-  void* number1; // Para almacenar el valor retornado por el nieto 1
-  void* number2; // Para almacenar el valor retornado por el nieto 2
-
-  srand(time(NULL)); // Semilla para los números aleatorios
-
-  // Crear hilos para la variante 1
-  pthread_create(&grandch1, NULL, number1, NULL);
-  pthread_create(&grandch2, NULL, number2, NULL);
-
-  // Esperar a que terminen los hilos y recoger los resultados
-  pthread_join(grandch1, &number1);
-  pthread_join(grandch2, &number2);
-
-  // Imprimir los resultados
-  printf("El número obtenido por el nieto 1 (variante 1) es: %d\n", *(int*)number1);
-  printf("El número obtenido por el nieto 2 (variante 1) es: %d\n", *(int*)number2);
-
-  // Liberar la memoria utilizada
-  free(number1);
-  free(number2);
-
-  // Crear hilos para la variante 2
-  pthread_create(&grandch1, NULL, number1_false_adress, NULL);
-  pthread_create(&grandch2, NULL, number2_false_adress, NULL);
-
-  // Esperar a que terminen los hilos y recoger los resultados
-  pthread_join(grandch1, &number1);
-  pthread_join(grandch2, &number2);
-
-  // Imprimir los resultados convertidos de la "falsa dirección de memoria"
-  printf("El número obtenido por el nieto 1 (variante 2) es: %d\n", *(int*)number1);
-  printf("El número obtenido por el nieto 2 (variante 2) es: %d\n", *(int*)number2);
-
-  return 0;
+void* variant2(void* arg) {
+  int num = rand() % 100; // Número random entre 0 y 99
+  return (void*)(intptr_t)num; // Convertir el número a una falsa dirección de memoria
 }
