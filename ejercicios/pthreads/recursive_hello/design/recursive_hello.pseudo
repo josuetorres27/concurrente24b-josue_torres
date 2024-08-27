@@ -7,9 +7,37 @@ procedure main:
 
   if error is 0:
     print "Hello from main thread"
-    // Esperar a que el hilo secundario termine su ejecución
+    // Esperar a que el hilo secundario termine de ejecutarse
     pthread_join(thread, NULL)
   else:
     print "Error: could not create secondary thread"
+  end if
+end procedure
+
+procedure greet(size_t_number)
+  // Convertir el argumento recibido a un puntero a size_t
+  set number_ptr to (size_t*) size_t_number
+
+  // Obtener el valor del número
+  set number to dereference number_ptr
+
+  if number is 0:
+    // Imprimir una despedida si el número es 0
+    print "Goodbye! Received number: " + number
+  else:
+    // Imprimir un saludo si el número es mayor que 0
+    print "Hello from secondary thread. Received number: " + number
+
+    // Crear un nuevo hilo con un número menor al recibido
+    declare new_thread as pthread_t
+    set new_number to number - 1
+    set error to pthread_create(new_thread, NULL, greet, &new_number)
+
+    if error is 0:
+      // Esperar a que el nuevo hilo termine de ejecutarse
+      pthread_join(new_thread, NULL)
+    else:
+      print "Error: could not create new thread"
+    end if
   end if
 end procedure
