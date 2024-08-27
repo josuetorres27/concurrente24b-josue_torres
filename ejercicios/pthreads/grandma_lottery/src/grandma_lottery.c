@@ -2,10 +2,13 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // Definición de las funciones para generar los números
 void* number1(void* arg);
 void* number2(void* arg);
+void* number1_false_adress(void* arg)
+void* number2_false_adress(void* arg)
 
 // Variante 1
 
