@@ -84,4 +84,3 @@ void* greet(void* data) {
   printf("Hello from secondary thread %" PRIu64 "\n", rank);
   return NULL;
 }  // end procedure
-Last updated 2024-08-27 11:48:55 -0600
