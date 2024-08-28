@@ -22,7 +22,9 @@
 
 * Indeterminismo: falta de conocimiento acerca de cuál hilo se va a ejecutar primero, o cuál hilo va a terminar primero. Se ejecutan hilos de un mismo proceso, pero no se sabe cuál se va a ejecutar (va a comenzar) primero. El programador no lo controla.
 
-* Memoria privada y compartida:
+* Memoria privada: espacio de memoria al que nada accede sin permiso del SO.
+
+* Memoria compartida:
 
 * Espera activa:
 
