@@ -42,7 +42,9 @@ int main(void) {
 
 // Subrutina para generar los números
 void* lottery_numbers(void* arg) {
-  (void) arg;
+  (void) arg; // Evitar el warning de argumento no utilizado
+
+  // Generar número pseudoaleatorio entre 0 y 99
   unsigned semilla = time(NULL) + clock();
   size_t num = rand_r(&semilla) % 100;
 
