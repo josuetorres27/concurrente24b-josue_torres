@@ -61,9 +61,15 @@ int main(int argc, char* argv[]) {
 int create_threads(uint64_t thread_count) {
   int error = EXIT_SUCCESS;
   // for thread_number := 0 to thread_count do
-  pthread_t* threads = (pthread_t*) malloc(thread_count * sizeof(pthread_t)); /** Reserva memoria para los identificadores de los hilos. */
+  /**
+   * @brief Reserva memoria para los identificadores de los hilos.
+   */
+  pthread_t* threads = (pthread_t*) malloc(thread_count * sizeof(pthread_t));
+  /**
+   * @brief Reserva memoria para la estructura de datos privada de cada hilo.
+   */
   private_data_t* private_data = (private_data_t*)
-    calloc(thread_count, sizeof(private_data_t)); /** Reserva memoria para la estructura de datos privada de cada hilo. */
+    calloc(thread_count, sizeof(private_data_t));
   if (threads && private_data) { /** Verifica si la asignación de memoria fue exitosa. */
     for (uint64_t thread_number = 0; thread_number < thread_count
         ; ++thread_number) { /** Inicializa los datos privados del hilo actual. */
