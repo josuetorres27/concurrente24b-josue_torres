@@ -1,0 +1,26 @@
+procedure main()
+  declare shared thread_count := 10 // Cantidad de hilos a crear
+  // Crear hilos y obtener el arreglo de datos privados
+  declare team := create_threads(thread_count, routine)
+
+  if team != NULL:
+    join_threads(thread_count, team) // Esperar a que todos los hilos terminen
+  end if
+end procedure
+
+procedure routine(private_data)
+  declare data := convert private_data to private_data_structure
+  print "I am thread ", data.thread_number, " of ", data.thread_count
+end procedure
+
+procedure create_threads(thread_count, routine)
+  declare private_data_array := new array of private_data_structure with size thread_count
+
+  if private_data_array:
+    for index from 0 to (thread_count - 1):
+      private_data_array[index].thread_number := index // Asignar número de hilo
+      private_data_array[index].thread_count := thread_count // Asignar cantidad total de hilos
+      private_data_array[index].shared_data := data
+    end for
+  end if
+end procedure
