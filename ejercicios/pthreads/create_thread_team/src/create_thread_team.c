@@ -20,7 +20,7 @@ private_data* create_threads(size_t count, void* (*routine)(void*),
   private_data* private_data_arr = (private_data*)
     calloc(count, sizeof(private_data));
   if (private_data_arr) {
-    for (size_t index = 0; index < count; ++index) {
+    for (size_t index = 0; index < count; index++) {
       // Inicializar los datos privados del hilo
       private_data_arr[index].thread_number = index;
       private_data_arr[index].thread_count = count;
@@ -38,4 +38,38 @@ private_data* create_threads(size_t count, void* (*routine)(void*),
     }
   }
   return private_data_arr;
+}
+
+// Recibe la cantidad de hilos y la dirección del arreglo de registros privados
+int join_threads(size_t count, private_data* private_data_arr) {
+  int error_count = 0; // Cuenta cuántos intentos de unir hilos fallan
+  // Espera por cada hilo
+  for (size_t index = 0; index < count; index++) {
+    const int error = pthread_join(private_data_arr[index].thread_id, NULL);
+    if (error) {
+      fprintf(stderr, "Error: could not join thread %zu\n", index);
+      error_count++;
+    }
+  }
+  // Libera el arreglo de datos privados
+  free(private_data_arr);
+  return error_count;
+}
+
+// Ejemplo de una rutina de hilo
+void* routine(void* arg) {
+  private_data* data = (private_data*) arg;
+  printf("I am thread %zu of %zu\n", data->thread_number, data->thread_count);
+  return NULL;
+}
+
+// Función principal
+int main() {
+  size_t thread_count = 10;
+  // Crear hilos y obtener el arreglo de datos privados
+  private_data* team = create_threads(thread_count, routine, NULL);
+  if (team != NULL) {
+    join_threads(thread_count, team); // Esperar a que todos los hilos terminen
+  }
+  return 0;
 }
