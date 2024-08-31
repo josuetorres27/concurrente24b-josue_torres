@@ -26,7 +26,7 @@
 
 * Memoria compartida:
 
-* Espera activa:
+* Espera activa: ciclo que hace a un hilo de ejecución esperar repetitivamente hasta que una condición se haga falsa.
 
 * Condición de carrera:
 
