@@ -14,13 +14,44 @@ procedure routine(private_data)
 end procedure
 
 procedure create_threads(thread_count, routine)
-  declare private_data_array := new array of private_data_structure with size thread_count
+  declare private_data_array := new array of private_data_structure
+    with size thread_count
 
   if private_data_array:
     for index from 0 to (thread_count - 1):
-      private_data_array[index].thread_number := index // Asignar número de hilo
-      private_data_array[index].thread_count := thread_count // Asignar cantidad total de hilos
+      // Asignar número de hilo
+      private_data_array[index].thread_number := index
+      // Asignar cantidad total de hilos
+      private_data_array[index].thread_count := thread_count
       private_data_array[index].shared_data := data
+
+      // Crear hilo y asignar la rutina con datos privados
+      declare error := create_thread(private_data_array[index].thread_id,
+        routine, &private_data_array[index])
+
+      if error != 0:
+        print "Error: could not create thread ", index
+        join_threads(index, private_data_array) // Limpieza en caso de error
+        return NULL
+      end if
     end for
   end if
+
+  return private_data_array // Retornar el arreglo de datos privados de hilos
+end procedure
+
+procedure join_threads(thread_count, private_data_array)
+  declare error_count := 0 // Contador de errores al hacer join
+
+  for index from 0 to (thread_count - 1):
+    declare error := join_thread(private_data_array[index].thread_id)
+
+    if error:
+      print "Error: could not join thread ", index
+      error_count++
+    end if
+  end for
+  // Liberar memoria del arreglo de datos privados
+  free_memory(private_data_array)
+  return error_count // Retornar la cantidad de errores al hacer join
 end procedure
