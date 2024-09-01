@@ -54,8 +54,8 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  shared_data_t* shared_data = (shared_data_t*)
-    calloc(1, sizeof(shared_data_t));
+  shared_data_t* shared_data = reinterpret_cast<shared_data_t*>(calloc
+    (1, sizeof(shared_data_t)));
   if (shared_data) {
   /**
    * @brief Establece que el primer hilo en saludar es el número 0.
@@ -82,22 +82,21 @@ int main(int argc, char* argv[]) {
   return error;
 }  // end procedure
 
-
 int create_threads(shared_data_t* shared_data) {
   int error = EXIT_SUCCESS;
   // for thread_number := 0 to thread_count do
-  pthread_t* threads = (pthread_t*)
-    malloc(shared_data->thread_count * sizeof(pthread_t));
-  private_data_t* private_data = (private_data_t*)
-    calloc(shared_data->thread_count, sizeof(private_data_t));
+  pthread_t* threads = reinterpret_cast<pthread_t*>(malloc
+    (shared_data->thread_count * sizeof(pthread_t)));
+  private_data_t* private_data = reinterpret_cast<private_data_t*>(calloc
+    (shared_data->thread_count, sizeof(private_data_t)));
   if (threads && private_data) {
-    for (uint64_t thread_number = 0; thread_number < shared_data->thread_count
-        ; ++thread_number) {
+    for (uint64_t thread_number = 0; thread_number < shared_data->thread_count;
+      ++thread_number) {
       private_data[thread_number].thread_number = thread_number;
       private_data[thread_number].shared_data = shared_data;
       // create_thread(greet, thread_number)
-      error = pthread_create(&threads[thread_number], /*attr*/ NULL, greet
-        , /*arg*/ &private_data[thread_number]);
+      error = pthread_create(&threads[thread_number], /*attr*/ NULL, greet,
+        /*arg*/ &private_data[thread_number]);
       if (error == EXIT_SUCCESS) {
       } else {
         fprintf(stderr, "Error: could not create secondary thread\n");
@@ -109,16 +108,16 @@ int create_threads(shared_data_t* shared_data) {
     // print "Hello from main thread"
     printf("Hello from main thread\n");
 
-    for (uint64_t thread_number = 0; thread_number < shared_data->thread_count
-        ; ++thread_number) {
+    for (uint64_t thread_number = 0; thread_number < shared_data->thread_count;
+      ++thread_number) {
       pthread_join(threads[thread_number], /*value_ptr*/ NULL);
     }
 
     free(private_data);
     free(threads);
   } else {
-    fprintf(stderr, "Error: could not allocate %" PRIu64 " threads\n"
-      , shared_data->thread_count);
+    fprintf(stderr, "Error: could not allocate %" PRIu64 " threads\n",
+      shared_data->thread_count);
     error = 22;
   }
 
@@ -128,7 +127,7 @@ int create_threads(shared_data_t* shared_data) {
 // procedure greet:
 void* greet(void* data) {
   assert(data);
-  private_data_t* private_data = (private_data_t*) data;
+  private_data_t* private_data = reinterpret_cast<private_data_t*>(data);
   shared_data_t* shared_data = private_data->shared_data;
 
   /**
@@ -140,8 +139,8 @@ void* greet(void* data) {
   }  // end while
 
   // print "Hello from secondary thread"
-  printf("Hello from secondary thread %" PRIu64 " of %" PRIu64 "\n"
-    , private_data->thread_number, shared_data->thread_count);
+  printf("Hello from secondary thread %" PRIu64 " of %" PRIu64 "\n",
+    private_data->thread_number, shared_data->thread_count);
 
   // Allow subsequent thread to do the task
   ++shared_data->next_thread; /**< Permite que el siguiente hilo se ejecute. */
