@@ -86,6 +86,54 @@ void read_plate(const char *filepath, long long int rows, long long int cols,
 }
 
 /**
+ * @brief Realiza la simulación de calor.
+ * 
+ * @details
+ * @param
+ * @return
+ */
+void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
+  double h, double epsilon) {
+  double max_delta;
+  double** next_plate = (double**) malloc(rows * sizeof(double *));
+  for (int i = 0; i < rows; i++) {
+    next_plate[i] = (double*) malloc(cols * sizeof(double));
+  }
+
+  do {
+    max_delta = 0.0;
+    for (int i = 1; i < rows - 1; i++) {
+      for (int j = 1; j < cols - 1; j++) {
+        /**
+         * @brief Aplicar la fórmula para calcular la nueva temperatura.
+         */
+        next_plate[i][j] = plate[i][j] + (((delta_t * alpha) / (h * h)) *
+          (plate[i-1][j] + plate[i+1][j] + plate[i][j-1] + plate[i][j+1] -
+            (4 * plate[i][j])));
+
+        double delta = fabs(next_plate[i][j] - plate[i][j]);
+        if (delta > max_delta) {
+          max_delta = delta;
+        }
+      }
+    }
+
+    // Copiar next_plate a plate
+    for (int i = 1; i < rows - 1; i++) {
+      for (int j = 1; j < cols - 1; j++) {
+        plate[i][j] = next_plate[i][j];
+      }
+    }
+  } while (max_delta > epsilon);
+
+  // Liberar la memoria de next_plate
+  for (int i = 0; i < rows; i++) {
+    free(next_plate[i]);
+  }
+  free(next_plate);
+}
+
+/**
  * @brief .
  * 
  * @details
@@ -156,6 +204,11 @@ int main(int argc, char *argv[]) {
      * @brief Leer la matriz inicial desde el archivo binario.
      */
     read_plate(filepath, rows, cols, plate);
+
+    /**
+     * @brief Comenzar la simulación.
+     */
+    simulate(plate, rows, cols, delta_t, alpha, h, epsilon);
 
     for (int i = 0; i < rows; i++) { /**< Liberar la memoria. */
       free(plate[i]);
