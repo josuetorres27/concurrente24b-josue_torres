@@ -45,5 +45,7 @@ Este comando ejecuta el programa, el cual recibe tres parámetros, los cuales so
 
 ## Créditos
 Nombre del estudiante: Josué Torres Sibaja
+
 Carnet: C37853
+
 Información de contacto: josue.torressibaja@ucr.ac.cr
