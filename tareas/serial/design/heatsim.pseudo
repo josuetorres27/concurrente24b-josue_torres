@@ -10,21 +10,21 @@ procedure read_dimensions(filepath, rows, cols)
   define file = open filepath
   if file == NULL:
     print "Error opening the plate file"
-    exit
+    return EXIT_FAILURE
   end if
 
   read rows from file
   if error_occurred:
     print "Error reading plate dimensions"
     close file
-    exit
+    return EXIT_FAILURE
   end if
 
   read cols from file
   if error_occurred:
     print "Error reading plate dimensions"
     close file
-    exit
+    return EXIT_FAILURE
   end if
 
   close file
@@ -34,7 +34,7 @@ procedure read_plate(filepath, rows, cols, plate)
   define file = open filepath
   if file == NULL:
     print "Error opening the plate file"
-    exit
+    return EXIT_FAILURE
   end if
 
   move file pointer to position 2 * size_of(long long int) from start of file
@@ -44,7 +44,7 @@ procedure read_plate(filepath, rows, cols, plate)
     if error_occurred:
       print "Error reading plate data"
       close file
-      exit
+      return EXIT_FAILURE
     end if
   end for
 
@@ -97,7 +97,7 @@ procedure write_plate(filepath, rows, cols, plate)
   define file = open filepath
   if file == NULL:
     print "Error opening the output file"
-    exit
+    return EXIT_FAILURE
   end if
 
   write rows to file
@@ -117,7 +117,7 @@ procedure create_report(job_file, plate_filename, delta_t, alpha, h, epsilon,
   report_file = fopen(report_filename, "a")
   if report_file == NULL:
     print "Error opening the report file"
-    exit
+    return EXIT_FAILURE
   end if
 
   define formatted_time = allocate memory for 48 bytes

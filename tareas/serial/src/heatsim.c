@@ -54,7 +54,7 @@ void read_dimensions(const char* filepath, long long int* rows, long long int*
   FILE* file = fopen(filepath, "rb");
   if (file == NULL) {
     perror("Error opening the plate file");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   /**
@@ -64,7 +64,7 @@ void read_dimensions(const char* filepath, long long int* rows, long long int*
     sizeof(long long int), 1, file) != 1) {
     perror("Error reading plate dimensions");
     fclose(file);
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
   fclose(file);
 }
@@ -82,7 +82,7 @@ void read_plate(const char* filepath, long long int rows, long long int cols,
   FILE* file = fopen(filepath, "rb");
   if (file == NULL) {
     perror("Error opening the plate file");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   /**
@@ -97,7 +97,7 @@ void read_plate(const char* filepath, long long int rows, long long int cols,
     if (fread(plate[i], sizeof(double), cols, file) != cols) {
       perror("Error reading plate data");
       fclose(file);
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
   }
   fclose(file);
@@ -189,7 +189,7 @@ void write_plate(const char* filepath, long long int rows, long long int cols,
   FILE* file = fopen(filepath, "wb"); /** Apertura del archivo. */
   if (file == NULL) {
     perror("Error opening the output file");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   /**
@@ -236,7 +236,7 @@ void create_report(const char* job_file, const char* plate_filename,
   FILE* report_file = fopen(report_filename, "a");
   if (report_file == NULL) {
     perror("Error opening the report file");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   char formatted_time[48]; /** Formatear el tiempo total de simulación. */
