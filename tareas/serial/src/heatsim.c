@@ -24,6 +24,19 @@
 #define MAX_PATH_LENGTH 260
 
 /**
+ * @struct Plate
+ * @brief Estructura para representar una placa térmica en la simulación.
+ * 
+ * @details Esta estructura almacena las dimensiones y los datos de la placa 
+ * térmica utilizada en la simulación.
+ */
+typedef struct {
+  long long int rows; /** Número de filas */
+  long long int cols; /** Número de columnas */
+  double** data; /** Puntero a la matriz de datos */
+} Plate;
+
+/**
  * @brief Formatea el tiempo transcurrido en segundos.
  * 
  * @details El formato de salida es: YYYY/MM/DD hh:mm:ss.
@@ -35,22 +48,26 @@
  */
 char* format_time(const time_t seconds, char* text, const size_t capacity) {
   const struct tm* gmt = gmtime(&seconds);
-  snprintf(text, capacity, "%04d/%02d/%02d\t%02d:%02d:%02d", gmt->tm_year +
-    1900, gmt->tm_mon + 1, gmt->tm_mday, gmt->tm_hour, gmt->tm_min,
-      gmt->tm_sec);
+  snprintf(text, capacity, "%04d/%02d/%02d\t%02d:%02d:%02d",
+    gmt->tm_year - 70, gmt->tm_mon, gmt->tm_mday - 1, gmt->tm_hour,
+      gmt->tm_min, gmt->tm_sec);
   return text;
 }
 
 /**
  * @brief Lee las dimensiones de la matriz desde el archivo binario.
  * 
- * @param filepath Ruta del archivo binario que contiene las dimensiones y 
- * datos de la matriz.
- * @param rows Puntero donde se almacenará el número de filas de la matriz.
- * @param cols Puntero donde se almacenará el número de columnas de la matriz.
+ * @details Esta función abre el archivo binario especificado por filepath, 
+ * lee las dimensiones de la placa térmica desde los primeros 16 bytes del 
+ * archivo y las almacena en la estructura Plate.
+ * @param filepath Ruta del archivo binario que contiene las dimensiones de la 
+ * matriz.
+ * @param plate Puntero a la estructura Plate donde se almacenarán las 
+ * dimensiones leídas.
+ * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
+ * un error.
  */
-void read_dimensions(const char* filepath, long long int* rows, long long int*
-  cols) {
+int read_dimensions(const char* filepath, Plate* plate) {
   FILE* file = fopen(filepath, "rb");
   if (file == NULL) {
     perror("Error opening the plate file");
@@ -60,25 +77,30 @@ void read_dimensions(const char* filepath, long long int* rows, long long int*
   /**
    * @brief Leer las dimensiones (8 bytes para filas, 8 bytes para columnas).
    */
-  if (fread(rows, sizeof(long long int), 1, file) != 1 || fread(cols,
-    sizeof(long long int), 1, file) != 1) {
+  if (fread(&(plate->rows), sizeof(long long int), 1, file) != 1 ||
+    fread(&(plate->cols), sizeof(long long int), 1, file) != 1) {
     perror("Error reading plate dimensions");
     fclose(file);
     return EXIT_FAILURE;
   }
   fclose(file);
+  return EXIT_SUCCESS;
 }
 
 /**
- * @brief Lee la matriz de temperaturas desde un archivo binario.
+ * @brief Lee los datos de una placa térmica desde un archivo binario.
  * 
- * @param filepath Ruta del archivo binario que contiene la matriz.
- * @param rows Número de filas de la matriz.
- * @param cols Número de columnas de la matriz.
- * @param plate Matriz donde se almacenarán los valores de temperatura.
+ * @details Esta función abre un archivo binario que contiene los datos de una 
+ * placa térmica y lee los datos de la matriz en la estructura Plate 
+ * proporcionada.
+ * 
+ * @param[in] filepath Ruta al archivo binario que contiene los datos.
+ * @param[in] plate Puntero a la estructura Plate donde se almacenarán los 
+ * datos leídos.
+ * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
+ * un error.
  */
-void read_plate(const char* filepath, long long int rows, long long int cols,
-  double** plate) {
+int read_plate(const char* filepath, Plate* plate) {
   FILE* file = fopen(filepath, "rb");
   if (file == NULL) {
     perror("Error opening the plate file");
@@ -91,25 +113,43 @@ void read_plate(const char* filepath, long long int rows, long long int cols,
   fseek(file, 2 * sizeof(long long int), SEEK_SET);
 
   /**
-   * @brief Leer los datos de la matriz.
+   * @brief Asigna memoria para un arreglo de punteros, donde cada uno es una 
+   * fila de la placa térmica.
    */
-  for (long long int i = 0; i < rows; i++) {
-    if (fread(plate[i], sizeof(double), cols, file) != cols) {
+  plate->data = (double**) malloc(plate->rows * sizeof(double *));
+
+  /**
+   * @brief Se asigna memoria para cada fila de la matriz.
+   */
+  for (long long int i = 0; i < plate->rows; i++) {
+    plate->data[i] = (double*) malloc(plate->cols * sizeof(double));
+
+    /**
+     * @brief Leer los datos de la placa térmica desde el archivo binario y 
+     * almacenarlos en la matriz.
+     */
+    if (fread(plate->data[i], sizeof(double), plate->cols,
+      file) != plate->cols) {
       perror("Error reading plate data");
       fclose(file);
       return EXIT_FAILURE;
     }
   }
   fclose(file);
+  return EXIT_SUCCESS;
 }
 
 /**
- * @brief Realiza la simulación de propagación de calor y retorna la cantidad 
- * de estados y el tiempo total.
+ * @brief Simula la difusión térmica en una placa hasta alcanzar un estado de 
+ * equilibrio.
  * 
- * @param plate Matriz de temperaturas.
- * @param rows Número de filas de la matriz.
- * @param cols Número de columnas de la matriz.
+ * @details Esta función realiza la simulación de la difusión térmica en la 
+ * placa representada por la estructura Plate. La simulación se ejecuta 
+ * iterativamente hasta que la diferencia máxima entre los valores de 
+ * temperatura de la placa sea menor que un valor epsilon, lo que indica que 
+ * se ha alcanzado el equilibrio térmico.
+ * 
+ * @param plate Puntero a la estructura que contiene la matriz de datos.
  * @param delta_t Tiempo permitido entre un estado y otro.
  * @param alpha Coeficiente de difusión térmica.
  * @param h Alto y ancho de cada celda.
@@ -117,16 +157,16 @@ void read_plate(const char* filepath, long long int rows, long long int cols,
  * @param k Puntero donde se almacenará la cantidad de estados.
  * @param time_seconds Puntero donde se almacenará el tiempo total en segundos.
  */
-void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
-  double h, double epsilon, int* k, time_t* time_seconds) {
+void simulate(Plate* plate, double delta_t, double alpha, double h,
+  double epsilon, int* k, time_t* time_seconds) {
 
   /**
    * @brief Inicialización de estructuras de datos.
    */
   double max_delta;
-  double** next_plate = (double**) malloc(rows * sizeof(double *));
-  for (int i = 0; i < rows; i++) {
-    next_plate[i] = (double*) malloc(cols * sizeof(double));
+  double** next_plate = (double**) malloc(plate->rows * sizeof(double *));
+  for (long long int i = 0; i < plate->rows; i++) {
+    next_plate[i] = (double*) malloc(plate->cols * sizeof(double));
   }
 
   *k = 0; /** Declaración de contadores. */
@@ -137,18 +177,18 @@ void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
    */
   do {
     max_delta = 0.0;
-    for (int i = 1; i < rows - 1; i++) {
-      for (int j = 1; j < cols - 1; j++) {
+    for (long long int i = 1; i < plate->rows - 1; i++) {
+      for (long long int j = 1; j < plate->cols - 1; j++) {
 
         /**
          * @brief Aplica la fórmula para calcular la nueva temperatura de cada 
          * celda.
          */
-        next_plate[i][j] = plate[i][j] + (((delta_t * alpha) / (h * h)) *
-          (plate[i-1][j] + plate[i+1][j] + plate[i][j-1] + plate[i][j+1] -
-            (4 * plate[i][j])));
+        next_plate[i][j] = plate->data[i][j] + (((delta_t * alpha) / (h * h)) *
+          (plate->data[i-1][j] + plate->data[i+1][j] + plate->data[i][j-1] +
+            plate->data[i][j+1] - (4 * plate->data[i][j])));
 
-        double delta = fabs(next_plate[i][j] - plate[i][j]);
+        double delta = fabs(next_plate[i][j] - plate->data[i][j]);
         if (delta > max_delta) {
           max_delta = delta;
         }
@@ -158,9 +198,9 @@ void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
     /**
      * @brief Copiar nuevas temperaturas a la matriz principal.
      */
-    for (int i = 1; i < rows - 1; i++) {
-      for (int j = 1; j < cols - 1; j++) {
-        plate[i][j] = next_plate[i][j];
+    for (long long int i = 1; i < plate->rows - 1; i++) {
+      for (long long int j = 1; j < plate->cols - 1; j++) {
+        plate->data[i][j] = next_plate[i][j];
       }
     }
 
@@ -169,7 +209,7 @@ void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
 
   } while (max_delta > epsilon); /** Condición de parada. */
 
-  for (int i = 0; i < rows; i++) {
+  for (long long int i = 0; i < plate->rows; i++) { /** Liberar memoria. */
     free(next_plate[i]);
   }
   free(next_plate);
@@ -178,15 +218,16 @@ void simulate(double** plate, int rows, int cols, double delta_t, double alpha,
 /**
  * @brief Escribe la matriz de temperaturas en un archivo binario.
  * 
+ * @details Esta función guarda la matriz de temperaturas de la placa en un 
+ * archivo binario especificado por filepath. Los datos se escriben en orden 
+ * fila por fila.
  * @param filepath Nombre del archivo a crear.
- * @param rows Número de filas de la matriz.
- * @param cols Número de columnas de la matriz.
- * @param plate Matriz de temperaturas.
+ * @param plate Puntero a la estructura Plate que contiene la matriz de datos.
+ * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
+ * un error.
  */
-void write_plate(const char* filepath, long long int rows, long long int cols,
-  double** plate) {
-
-  FILE* file = fopen(filepath, "wb"); /** Apertura del archivo. */
+int write_plate(const char* filepath, Plate* plate) {
+  FILE* file = fopen(filepath, "wb");
   if (file == NULL) {
     perror("Error opening the output file");
     return EXIT_FAILURE;
@@ -195,17 +236,18 @@ void write_plate(const char* filepath, long long int rows, long long int cols,
   /**
    * @brief Escritura de las dimensiones de la matriz.
    */
-  fwrite(&rows, sizeof(long long int), 1, file);
-  fwrite(&cols, sizeof(long long int), 1, file);
+  fwrite(&(plate->rows), sizeof(long long int), 1, file);
+  fwrite(&(plate->cols), sizeof(long long int), 1, file);
 
   /**
    * @brief Escribe cada fila de la matriz de temperaturas en el archivo 
    * binario.
    */
-  for (long long int i = 0; i < rows; i++) {
-    fwrite(plate[i], sizeof(double), cols, file);
+  for (long long int i = 0; i < plate->rows; i++) {
+    fwrite(plate->data[i], sizeof(double), plate->cols, file);
   }
   fclose(file);
+  return EXIT_SUCCESS;
 }
 
 /**
@@ -219,8 +261,10 @@ void write_plate(const char* filepath, long long int rows, long long int cols,
  * @param epsilon Mínimo cambio de temperatura significativo.
  * @param k Puntero donde se almacenará la cantidad de estados.
  * @param time_seconds Tiempo total en segundos que duró la simulación.
+ * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
+ * un error.
  */
-void create_report(const char* job_file, const char* plate_filename,
+int create_report(const char* job_file, const char* plate_filename,
   double delta_t, double alpha, double h, double epsilon, int k,
     time_t time_seconds) {
 
@@ -228,7 +272,21 @@ void create_report(const char* job_file, const char* plate_filename,
    * @brief Generar el nombre del archivo de reporte.
    */
   char report_filename[MAX_PATH_LENGTH];
-  snprintf(report_filename, sizeof(report_filename), "%s.tsv", job_file);
+  strncpy(report_filename, job_file, MAX_PATH_LENGTH - 1);
+  report_filename[MAX_PATH_LENGTH - 1] = '\0';
+
+  /**
+   * @brief Modificar el nombre del archivo para que tenga la extensión .tsv. 
+   * Dependiendo de si el archivo original tiene la extensión .txt o no, la 
+   * extensión será reemplazada o añadida al nombre.
+   */
+  char *dot_position = strrchr(report_filename, '.');
+  if (dot_position != NULL && strcmp(dot_position, ".txt") == 0) {
+  strcpy(dot_position, ".tsv");
+  } else {
+  strncat(report_filename, ".tsv", MAX_PATH_LENGTH - strlen(report_filename) -
+    1);
+  }
 
   /**
    * @brief Apertura del archivo de reporte.
@@ -249,6 +307,7 @@ void create_report(const char* job_file, const char* plate_filename,
     delta_t, alpha, h, epsilon, k, formatted_time);
 
   fclose(report_file);
+  return EXIT_SUCCESS;
 }
 
 /**
@@ -313,21 +372,19 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
 
-    long long int rows, cols;
-    read_dimensions(filepath, &rows, &cols);
-
     /**
-     * @brief Reserva memoria para la matriz.
+     * @brief Leer las dimensiones y datos de la placa.
      */
-    double** plate = (double**) malloc(rows * sizeof(double *));
-    for (int i = 0; i < rows; i++) {
-      plate[i] = (double*) malloc(cols * sizeof(double));
+    Plate plate;
+    if (read_dimensions(filepath, &plate) != EXIT_SUCCESS) {
+      fclose(file);
+      return EXIT_FAILURE;
     }
 
-    /**
-     * @brief Lectura de la matriz de temperaturas inicial.
-     */
-    read_plate(filepath, rows, cols, plate);
+    if (read_plate(filepath, &plate) != EXIT_SUCCESS) {
+      fclose(file);
+      return EXIT_FAILURE;
+    }
 
   /**
    * @brief Realiza una simulación para cada lámina especificada en el archivo 
@@ -343,7 +400,7 @@ int main(int argc, char *argv[]) {
    */
     int k;
     time_t time_seconds;
-    simulate(plate, rows, cols, delta_t, alpha, h, epsilon, &k, &time_seconds);
+    simulate(&plate, delta_t, alpha, h, epsilon, &k, &time_seconds);
 
     /**
      * @brief Genera el reporte de la simulación.
@@ -357,16 +414,16 @@ int main(int argc, char *argv[]) {
     char output_filename[MAX_PATH_LENGTH];
     snprintf(output_filename, sizeof(output_filename), "plate%03d-%d.bin",
       atoi(&plate_filename[5]), k);
-    write_plate(output_filename, rows, cols, plate);
+    write_plate(output_filename, &plate);
 
     /**
-     * @brief Cierra el archivo de trabajo y libera la memoria dinámica que 
-     * se ha utilizado durante la ejecución.
+     * @brief Libera la memoria dinámica que se ha utilizado durante la 
+     * ejecución.
      */
-    for (int i = 0; i < rows; i++) {
-      free(plate[i]);
+    for (long long int i = 0; i < plate.rows; i++) {
+      free(plate.data[i]);
     }
-    free(plate);
+    free(plate.data);
   }
   fclose(file);
   return EXIT_SUCCESS;
