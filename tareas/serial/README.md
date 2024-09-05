@@ -50,4 +50,6 @@ Carnet: C37853
 
 Información de contacto: josue.torressibaja@ucr.ac.cr
 
+
+## Enlace al diseño del programa
 [Diseño del programa](design/README.md)
