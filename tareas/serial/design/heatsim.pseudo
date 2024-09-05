@@ -1,5 +1,11 @@
 define MAX_PATH_LENGTH = 260
 
+define struct Plate
+  variable rows
+  variable cols
+  variable data
+end
+
 procedure format_time(seconds, text, capacity)
   define gmt = gmtime(seconds)
   text = "Formatted date and time string"
@@ -145,7 +151,7 @@ procedure main(argc, argv)
     return 1
   end if
 
-  variable double delta_t, alpha, h, epsilon;
+  variable double delta_t, alpha, h, epsilon
 
   while read from file and store in plate_filename, delta_t, alpha, h,
     epsilon == 5:
