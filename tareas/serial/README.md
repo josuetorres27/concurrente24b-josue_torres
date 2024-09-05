@@ -21,7 +21,7 @@ Si no está instalado, se puede instalar con los siguientes comandos:
    sudo apt install gcc
 
 
-2. Se debe acceder al directorio donde se encuentran los archivos necesarios para ejecutar el programa. Estos son: los archivos de código fuente (.c y .h) los archivos de trabajo que se utilizarán como parámetros, y los archivos de lámina que se mencionan en los archivos de trabajo.
+2. Se debe acceder al directorio donde se encuentran los archivos necesarios para ejecutar el programa (concurrente24b-josue_torres/tareas/serial, si el repositorio está clonado localmente). Estos son: los archivos de código fuente (.c y .h), que se encuentran dentro de la carpeta 'src', y los archivos de trabajo que se utilizarán como parámetros, que se encuentran en la carpeta 'test'.
 Para esto se debe usar el comando 'cd', de esta forma:
 
    cd /ruta/al/directorio
@@ -31,16 +31,16 @@ La parte de '/ruta/al/directorio' se debe reemplazar con la dirección del direc
 
 3. Se debe compilar el programa con el siguiente comando:
 
-   gcc -o main main.c -lm
+   gcc src/main.c src/utils.c src/plate.c src/plate.h -o heat_sim
 
-Con esto se generará el archivo ejecutable del programa.
+Con esto se generará el archivo ejecutable del programa. En este caso se sugiere el nombre 'heat_sim', pero este puede ser cambiado al nombre que se desee.
 
 
 4. Se debe ejecutar el programa con el siguiente comando:
 
-   ./main job_file thread_count file_directory
+   ./heat_sim test/job_file.txt 1 test/
 
-Este comando ejecuta el programa, el cual recibe tres parámetros, los cuales son: 'job_file', el archivo que contiene las instrucciones para la simulación; 'thread_count', que indica el número de hilos, y 'file_directory', que especifica el directorio donde están los archivos de la lámina. Los dos últimos parámetros son opcionales, ya que en este momento el programa tiene una implementación serial y no necesita que se especifique la cantidad de hilos de ejecución, y si no se especifica el directorio, los archivos se buscan en el directorio actual.
+Este comando ejecuta el programa, el cual recibe tres parámetros: 'job_file', el archivo que contiene las instrucciones para la simulación (se debe cambiar el nombre del archivo por el que se desee utilizar); 'thread_count', que indica el número de hilos (en esta implementación no se toma en cuenta ya que el programa es serial), y 'test', el cual es el directorio donde están los casos de prueba. Adicionalmente se debe cambiar el nombre 'heat_sim' por el que se haya escrito en el paso 3.
 
 
 ## Créditos
