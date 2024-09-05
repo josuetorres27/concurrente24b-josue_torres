@@ -2,6 +2,10 @@
 ![En el diagrama se presentan 5 módulos diferentes, de los cuales el módulo Plate, ubicado en el centro, representa la estructura de datos del mismo nombre. Los otros cuatro módulos representan los archivos/bloques de código fuente en los que se divide el programa. Las flechas entre los módulos representan las relaciones que tienen las diferentes partes del código. Por ejemplo, los módulos que incluyen al archivo "plate.h" envían una flecha hacia su módulo, y el módulo main.c envía una flecha hacia todos los otros módulos, ya que este utiliza funciones y partes de cada uno.](UML_diagram.svg)
 
 
+## Diagrama de memoria
+![El diagrama representa el uso de las diferentes secciones de memoria del programa. El Code Segment almacena las instrucciones del código; el Stack Segment contiene las variables locales y las direcciones de retorno; el Heap Segment contiene las asignaciones dinámicas de memoria relacionadas con la estructura Plate; y el Data Segment no se utiliza, ya que no existen variables globales.](Memory_diagram.svg)
+
+
 ## Pseudocódigo
 ```pseudo
 define MAX_PATH_LENGTH = 260
