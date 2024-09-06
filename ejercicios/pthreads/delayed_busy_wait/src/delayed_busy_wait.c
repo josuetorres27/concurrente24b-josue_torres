@@ -129,12 +129,21 @@ void* greet(void* data) {
   assert(data);
   private_data_t* private_data = (private_data_t*) data;
   shared_data_t* shared_data = private_data->shared_data;
-    /**
-     * @brief Espera activa con retraso constante.
-     */
+  /**
+   * @brief Espera activa con retraso constante.
+   */
   while (shared_data->next_thread < private_data->thread_number) {
     usleep(shared_data->delay);
   }
+  /**
+   * @brief Espera activa con retraso pseudoaleatorio.
+   */
+  /*
+  while (next_thread < my_thread_id) {
+    const unsigned my_delay = rand_r(&my_seed) % max_delay;
+    usleep(my_delay);
+  }
+  */
   printf("Hello from secondary thread %" PRIu64 " of %" PRIu64 "\n",
     private_data->thread_number, shared_data->thread_count);
   ++shared_data->next_thread;
