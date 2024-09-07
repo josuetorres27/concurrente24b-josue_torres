@@ -28,7 +28,8 @@ void* hit_pinata(void* arg) {
     if (shared->hits_left > 0) {
       shared->hits_left--; // Reducir los golpes restantes
       data->hits++; // Aumentar los golpes del hilo
-      printf("Thread %d hit the pinata. Remaining hits: %d\n", data->id, shared->hits_left);
+      printf("Thread %d hit the pinata. Remaining hits: %d\n", data->id,
+        shared->hits_left);
 
       // Si la piñata se rompe
       if (shared->hits_left == 0) {
@@ -38,11 +39,12 @@ void* hit_pinata(void* arg) {
         return NULL;
       }
     } else {
-      pthread_mutex_unlock(&shared->mutex); // Liberar el mutex si ya no hay golpes restantes
+      // Liberar el mutex si ya no hay golpes restantes
+      pthread_mutex_unlock(&shared->mutex);
       return NULL;
     }
-
-    pthread_mutex_unlock(&shared->mutex); // Liberar el mutex para que otro hilo golpee
+    // Liberar el mutex para que otro hilo golpee
+    pthread_mutex_unlock(&shared->mutex);
   }
 
   return NULL;
@@ -50,7 +52,8 @@ void* hit_pinata(void* arg) {
 
 int main(int argc, char* argv[]) {
   if (argc != 3) {
-    printf("Usage: %s <thread count> <number of hits the pinata can withstand>\n", argv[0]);
+    printf("Usage: %s <thread count> <number of hits the pinata can 
+      withstand>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -61,9 +64,16 @@ int main(int argc, char* argv[]) {
   ThreadData thread_data[thread_count];
   SharedData shared_data;
 
+  // Inicializar los datos compartidos
+  pthread_mutex_init(&shared_data.mutex, NULL);
+  shared_data.hits_left = hits_left;
+  shared_data.breaker = -1; // Aún no se rompe la piñata
+
   // Crear los hilos
   for (int i = 0; i < thread_count; i++) {
     thread_data[i].id = i;
+    // Pasar la referencia a los datos compartidos
+    thread_data[i].shared_data = &shared_data;
     pthread_create(&threads[i], NULL, hit_pinata, &thread_data[i]);
   }
 
@@ -71,6 +81,15 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < thread_count; i++) {
     pthread_join(threads[i], NULL);
   }
+
+  // Reportar cuántos golpes hizo cada hilo
+  for (int i = 0; i < thread_count; i++) {
+    printf("Thread %d/%d: %d hits\n", thread_data[i].id, thread_count,
+      thread_data[i].hits);
+  }
+
+  // Limpiar el mutex
+  pthread_mutex_destroy(&shared_data.mutex);
 
   return 0;
 }
