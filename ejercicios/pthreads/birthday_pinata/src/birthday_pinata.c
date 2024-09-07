@@ -1,3 +1,4 @@
+// Copyright [2024] Josué Torres Sibaja
 // Josué Torres Sibaja C37853
 
 #include <pthread.h>
@@ -5,29 +6,29 @@
 #include <stdlib.h>
 
 typedef struct {
-  pthread_mutex_t mutex; // Mutex para proteger el acceso a la piñata
-  int hits_left; // Cantidad de golpes que la piñata puede soportar
-  int breaker; // ID del hilo que rompió la piñata
+  pthread_mutex_t mutex;  // Mutex para proteger el acceso a la piñata
+  int hits_left;  // Cantidad de golpes que la piñata puede soportar
+  int breaker;  // ID del hilo que rompió la piñata
 } SharedData;
 
 typedef struct {
-  int id; // Identificador del hilo
-  int hits; // Contador de golpes
-  SharedData* shared_data; // Puntero a los datos compartidos
+  int id;  // Identificador del hilo
+  int hits;  // Contador de golpes
+  SharedData* shared_data;  // Puntero a los datos compartidos
 } ThreadData;
 
 void* hit_pinata(void* arg) {
-  ThreadData* data = (ThreadData*) arg;
-  SharedData* shared = data->shared_data; // Acceso a los datos compartidos
-  data->hits = 0; // Inicializar el contador de golpes del hilo
+  ThreadData* data = reinterpret_cast<ThreadData*> arg;
+  SharedData* shared = data->shared_data;  // Acceso a los datos compartidos
+  data->hits = 0;  // Inicializar el contador de golpes del hilo
 
   while (1) {
     // Bloquear el acceso a la piñata
     pthread_mutex_lock(&shared->mutex);
 
     if (shared->hits_left > 0) {
-      shared->hits_left--; // Reducir los golpes restantes
-      data->hits++; // Aumentar los golpes del hilo
+      shared->hits_left--;  // Reducir los golpes restantes
+      data->hits++;  // Aumentar los golpes del hilo
       printf("Thread %d hit the pinata. Remaining hits: %d\n", data->id,
         shared->hits_left);
 
@@ -35,7 +36,7 @@ void* hit_pinata(void* arg) {
       if (shared->hits_left == 0) {
         shared->breaker = data->id;
         printf("Thread %d broke the pinata!\n", data->id);
-        pthread_mutex_unlock(&shared->mutex); // Liberar el mutex
+        pthread_mutex_unlock(&shared->mutex);  // Liberar el mutex
         return NULL;
       }
     } else {
@@ -52,22 +53,28 @@ void* hit_pinata(void* arg) {
 
 int main(int argc, char* argv[]) {
   if (argc != 3) {
-    printf("Usage: %s <thread count> <number of hits the pinata can 
-      withstand>\n", argv[0]);
+    printf("Usage: %s <thread count> <hits pinata can withstand>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
-  int thread_count = atoi(argv[1]); // Número de hilos
-  int hits_left = atoi(argv[2]); // Golpes que soporta la piñata
+  int thread_count = atoi(argv[1]);  // Número de hilos
+  int hits_left = atoi(argv[2]);  // Golpes que soporta la piñata
 
-  pthread_t threads[thread_count];
-  ThreadData thread_data[thread_count];
+  // Asignar memoria dinámicamente para los hilos y sus datos
+  pthread_t* threads = malloc(thread_count * sizeof(pthread_t));
+  ThreadData* thread_data = malloc(thread_count * sizeof(ThreadData));
+
+  if (threads == NULL || thread_data == NULL) {
+    printf("Error allocating memory for threads or thread data\n");
+    return EXIT_FAILURE;
+  }
+
   SharedData shared_data;
 
   // Inicializar los datos compartidos
   pthread_mutex_init(&shared_data.mutex, NULL);
   shared_data.hits_left = hits_left;
-  shared_data.breaker = -1; // Aún no se rompe la piñata
+  shared_data.breaker = -1;  // Aún no se rompe la piñata
 
   // Crear los hilos
   for (int i = 0; i < thread_count; i++) {
