@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  shared_data_t* shared_data = reinterpret_cast<shared_data_t*> calloc(1,
+  shared_data_t* shared_data = (shared_data_t*) calloc(1,
     sizeof(shared_data_t));
   if (shared_data) {
     shared_data->next_thread = 0;
@@ -92,10 +92,10 @@ int main(int argc, char* argv[]) {
 
 int create_threads(shared_data_t* shared_data) {
   int error = EXIT_SUCCESS;
-  pthread_t* threads = reinterpret_cast<pthread_t*> malloc(shared_data->
+  pthread_t* threads = (pthread_t*) malloc(shared_data->
     thread_count * sizeof(pthread_t));
-  private_data_t* private_data = reinterpret_cast<private_data_t*>
-    calloc(shared_data->thread_count, sizeof(private_data_t));
+  private_data_t* private_data = (private_data_t*) calloc(shared_data->
+    thread_count, sizeof(private_data_t));
 
   if (threads && private_data) {
     for (uint64_t thread_number = 0; thread_number < shared_data->thread_count;
@@ -127,7 +127,7 @@ int create_threads(shared_data_t* shared_data) {
 
 void* greet(void* data) {
   assert(data);
-  private_data_t* private_data = reinterpret_cast<private_data_t*> data;
+  private_data_t* private_data = (private_data_t*) data;
   shared_data_t* shared_data = private_data->shared_data;
   /**
    * @brief Espera activa con retraso constante.
