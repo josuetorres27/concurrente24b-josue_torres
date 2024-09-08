@@ -1,3 +1,6 @@
+## Ejercicio 14 [delayed_busy_wait]
+Espera activa con retraso. ¿Se corrige el problema de la espera activa si en lugar de tener un ciclo vacío, se espera un cierto tiempo? Copie su carpeta ejemplos/pthreads/hello_order_busywait a ejercicios/pthreads/delayed_busy_wait. Permita que el usuario pueda invocar su programa dos argumentos de línea de comandos: la cantidad de hilos a crear, y la cantidad de microsegundos a esperar cuando no es el turno del hilo de ejecución.
+
 ### Ejecute al menos tres veces su solución (sin sanitizers) con la cantidad máxima de hilos de ejecución que su sistema operativo le permite crear y una espera de 50µs.
 ### Anote la mayor de las duraciones que obtuvo de sus corridas:
 Utilizando 2740 hilos (la cantidad máxima que permite el sistema son 27407, pero se utilizaron menos para evitar sobrecargas), el mayor tiempo obtenido tras varias ejecuciones fue de: 1.074669638s.
