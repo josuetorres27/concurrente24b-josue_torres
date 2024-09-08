@@ -1,8 +1,6 @@
 ### Ejecute al menos tres veces su solución (sin sanitizers) con la cantidad máxima de hilos de ejecución que su sistema operativo le permite crear y una espera de 50µs.
-
-
 ### Anote la mayor de las duraciones que obtuvo de sus corridas:
-Utilizando 2740 hilos (la cantidad máxima que permite el sistema son 27407, pero se utilizaron menos para evitar sobrecargas), el mayor tiempo obtenido tras varias ejecuciones fue de: 0.604218459s.
+Utilizando 2740 hilos (la cantidad máxima que permite el sistema son 27407, pero se utilizaron menos para evitar sobrecargas), el mayor tiempo obtenido tras varias ejecuciones fue de: 1.074669638s.
 
 
 ### ¿Hubo una mejora de la espera constante respecto a la espera activa pura?
@@ -10,11 +8,11 @@ Sí.
 
 
 ### Ejecute al menos tres veces su solución pseudoaleatoria con la cantidad máxima de hilos y un máximo de espera de 50µs. Tome la mayor de las duraciones. ¿Hubo una mejora de la espera pseudoaleatoria respecto a la espera constante?
-No hubo mejora, ya que la cantidad de hilos es baja, pero podría haberla si se usara una cantidad de hilos más grande.
+La mejora fue mínima, pero podría mejorar más si se usara una cantidad de hilos más grande y la comparación fuera con un máximo de espera mayor.
 
 
 ### Comparación de las esperas. ¿Mejora el tiempo de ejecución de los dos tipos de esperas (constante y pseudoaleatoria) si disminuye o incrementa la espera máxima de los hilos?
-En las ejecuciones que hice la cantidad de microsegundos no parece afectar en la mejora del tiempo de ejecución, ya que varios números más altos de microsegundos tuvieron tiempos de ejecución mejores que números más bajos.
+Los tiempos de ejecución varían mínimamente, pero se aprecia una mejora en la espera pseudoaleatoria con cantidades de microsegundos mayores.
 
 
 ### Cree una gráfica donde el eje-x son las duraciones dadas por argumento al programa. El eje-y son los tiempos de ejecución de los programas. El gráfico tendrá dos series, una para la espera constante y otra para la espera pseudoaleatoria.
