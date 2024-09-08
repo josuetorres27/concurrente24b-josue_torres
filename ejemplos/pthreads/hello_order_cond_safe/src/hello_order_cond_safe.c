@@ -62,10 +62,10 @@ int main(int argc, char* argv[]) {
    * si el puntero resultante es diferente de NULL. Si la asignación falla, el
    * programa devuelve un error.
    */
-  shared_data_t* shared_data = (shared_data_t*) calloc(1,
+  shared_data_t* shared_data = (shared_data_t*) calloc(1,  // NOLINT
     sizeof(shared_data_t));
   if (shared_data) {
-    shared_data->greets = (char**) calloc(thread_count, sizeof(char*));
+    shared_data->greets = (char**) calloc(thread_count, sizeof(char*));  // NOLINT
     shared_data->thread_count = thread_count;
 
     if (shared_data->greets) {
@@ -97,9 +97,9 @@ int main(int argc, char* argv[]) {
 int create_threads(shared_data_t* shared_data) {
   int error = EXIT_SUCCESS;
   // for thread_number := 0 to thread_count do
-  pthread_t* threads = (pthread_t*)
-    malloc(shared_data->thread_count * sizeof(pthread_t));
-  private_data_t* private_data = (private_data_t*)
+  pthread_t* threads = (pthread_t*)  // NOLINT
+    malloc(shared_data->thread_count * sizeof(pthread_t));  // NOLINT
+  private_data_t* private_data = (private_data_t*)  // NOLINT
     calloc(shared_data->thread_count, sizeof(private_data_t));
   if (threads && private_data) {
     for (uint64_t thread_number = 0; thread_number < shared_data->thread_count;
@@ -108,7 +108,7 @@ int create_threads(shared_data_t* shared_data) {
        * @brief Para cada hilo se asigna memoria suficiente para almacenar una
        * cadena de caracteres de longitud máxima, la cual se definió al incio.
        */
-      shared_data->greets[thread_number] = (char*)
+      shared_data->greets[thread_number] = (char*)  // NOLINT
         malloc(MAX_GREET_LEN * sizeof(char));
       if (shared_data->greets[thread_number]) {
         // *shared_data->greets[thread_number] = '\0';
@@ -169,7 +169,7 @@ int create_threads(shared_data_t* shared_data) {
 // procedure greet:
 void* greet(void* data) {
   assert(data); /**< Verifica que data no sea NULL antes de proceder. */
-  private_data_t* private_data = (private_data_t*) data;
+  private_data_t* private_data = (private_data_t*) data;  // NOLINT
   shared_data_t* shared_data = private_data->shared_data;
 
   // greets[thread_number] := format("Hello from secondary thread"
@@ -178,7 +178,7 @@ void* greet(void* data) {
    * @brief Cada hilo genera un saludo utilizando sprintf y lo almacena en su
    * respectivo índice en el arreglo greets.
    */
-  sprintf(shared_data->greets[private_data->thread_number]
+  snprintf(shared_data->greets[private_data->thread_number]
     , "Hello from secondary thread %" PRIu64 " of %" PRIu64
     , private_data->thread_number, shared_data->thread_count);
 

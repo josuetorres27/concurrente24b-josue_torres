@@ -53,10 +53,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  shared_data_t* shared_data = (shared_data_t*)calloc(1, sizeof(shared_data_t));
+  shared_data_t* shared_data = (shared_data_t*)calloc(1, sizeof(shared_data_t));  // NOLINT
   if (shared_data) {
     /** Reserva memoria para los semáforos, uno por cada hilo. */
-    shared_data->can_greet = (sem_t*) calloc(thread_count, sizeof(sem_t));
+    shared_data->can_greet = (sem_t*) calloc(thread_count, sizeof(sem_t));  // NOLINT
     shared_data->thread_count = thread_count;
 
     for (uint64_t thread_number = 0; thread_number < shared_data->thread_count
@@ -101,9 +101,9 @@ int main(int argc, char* argv[]) {
 int create_threads(shared_data_t* shared_data) {
   int error = EXIT_SUCCESS;
   // for thread_number := 0 to thread_count do
-  pthread_t* threads = (pthread_t*)
+  pthread_t* threads = (pthread_t*)  // NOLINT
     malloc(shared_data->thread_count * sizeof(pthread_t));
-  private_data_t* private_data = (private_data_t*)
+  private_data_t* private_data = (private_data_t*)  // NOLINT
     calloc(shared_data->thread_count, sizeof(private_data_t));
   if (threads && private_data) {
     for (uint64_t thread_number = 0; thread_number < shared_data->thread_count
@@ -152,7 +152,7 @@ int create_threads(shared_data_t* shared_data) {
 // procedure greet:
 void* greet(void* data) {
   assert(data);
-  private_data_t* private_data = (private_data_t*) data;
+  private_data_t* private_data = (private_data_t*) data;  // NOLINT
   shared_data_t* shared_data = private_data->shared_data;
 
   // Wait until it is my turn
