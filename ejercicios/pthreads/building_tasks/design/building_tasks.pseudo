@@ -1,0 +1,39 @@
+structure shared_data_t
+  for each task do
+    declare_semaphore()
+  end for
+end structure
+
+structure private_data_t
+  pointer to shared_data_t
+end structure
+
+procedure main()
+  shared shared_data.allocate()
+  for each task do
+    private_data_array.allocate()
+  end for
+
+  do_tasks(shared_data, private_data_array)
+end procedure
+
+procedure do_tasks(shared_data, private_data)
+  for each semaphore in shared_data do
+    create_sempahore()
+  end for
+
+  for thread_number := 0 to 9 do
+    private_data[thread_number].shared_data := shared_data
+    create_thread(task, shared_data)
+  end for
+
+  join_threads()
+end procedure
+
+procedure task(data)
+  wait(previous_task_semaphore)
+  print "Task started"
+  sleep(random)
+  print "Task finished"
+  signal(task_finished)
+end procedure
