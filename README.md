@@ -34,7 +34,7 @@
 
 * Seguridad condicional: mecanismo que permite que los hilos esperen a que ocurra una condición específica antes de continuar. Es útil en situaciones donde un hilo debe esperar a que otro hilo complete una tarea antes de proceder.
 
-* Exclusión mutua / Mutex: mecanismo para asegurar que solo un hilo o proceso pueda acceder a un recurso compartido en un momento dado. Estructura que ayuda a que, independientemente de la cantidad de hilos que se ejecutan, todos llegan a un embudo que los limita a pasar por un cuello de botella, el cual debe ser lo más corto posible. Va a dejar pasar los hilos uno por uno. Va en la parte de memoria compartida para que todos tengan acceso a él. Lock --> wait. Unlock --> signal.
+* Exclusión mutua / Mutex (mutual exclusion): mecanismo para asegurar que solo un hilo o proceso pueda acceder a un recurso compartido en un momento dado. Estructura que ayuda a que, independientemente de la cantidad de hilos que se ejecutan, todos llegan a un embudo que los limita a pasar por un cuello de botella, el cual debe ser lo más corto posible. Va a dejar pasar los hilos uno por uno. Va en la parte de memoria compartida para que todos tengan acceso a él. Lock --> wait. Unlock --> signal.
 
 * Semáforo: entero con signo, con tres características:
 1. Cuando se crea, éste se inicializa con un entero cualquiera (negativo, cero, o positivo), pero después de inicializado las únicas dos operaciones que están permitidas es incrementar en uno (signal) y decrementar en uno (wait) al semáforo. No se puede leer el valor actual del semáforo.
@@ -70,3 +70,5 @@
 * RSP: stack pointer.
 
 * Assert: biblioteca de pruebas unitarias, indica si la memoria es válida o no. Si no es válida detiene el programa.
+
+* Buffer: es como un sistema de correos, en el que el productor deja mensajes dentro del buffer para que el consumidor los lea en cuanto tenga tiempo. Es como un buzón en el que se dejan mensajes que no requieren comunicación directa ni respuesta inmediata. Espacio de memoria donde algunos procesos pueden poner mensajes que otro proceso va a consumir eventualmente. El buffer acotado tiene un tamaño fijo, el no acotado no tiene restricciones de tamaño.
