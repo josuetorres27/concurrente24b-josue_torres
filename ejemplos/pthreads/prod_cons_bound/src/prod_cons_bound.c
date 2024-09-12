@@ -90,13 +90,13 @@ useconds_t random_between(useconds_t min, useconds_t max);
  */
 int main(int argc, char* argv[]) {
   int error = EXIT_SUCCESS;
-  shared_data_t* shared_data = (shared_data_t*)
+  shared_data_t* shared_data = (shared_data_t*)  // NOLINT
     calloc(1, sizeof(shared_data_t));
 
   if (shared_data) {
     error = analyze_arguments(argc, argv, shared_data);
     if (error == EXIT_SUCCESS) {
-      shared_data->buffer = (double*)
+      shared_data->buffer = (double*)  // NOLINT
         calloc(shared_data->buffer_capacity, sizeof(double));
       if (shared_data->buffer) {
         unsigned int seed = 0u;
@@ -184,8 +184,10 @@ int create_threads(shared_data_t* shared_data) {
   int error = EXIT_SUCCESS;
 
   pthread_t producer, consumer;
+  /** Creates the producer thread. */
   error = pthread_create(&producer, /*attr*/ NULL, produce, shared_data);
   if (error == EXIT_SUCCESS) {
+    /** Creates the consumer thread. */
     error = pthread_create(&consumer, /*attr*/ NULL, consume, shared_data);
     if (error != EXIT_SUCCESS) {
       fprintf(stderr, "error: could not create consumer\n");
@@ -220,7 +222,7 @@ int create_threads(shared_data_t* shared_data) {
  */
 void* produce(void* data) {
   // const private_data_t* private_data = (private_data_t*)data;
-  shared_data_t* shared_data = (shared_data_t*)data;
+  shared_data_t* shared_data = (shared_data_t*)data;  // NOLINT
   size_t count = 0;
   for (size_t round = 0; round < shared_data->rounds; ++round) {
     for (size_t index = 0; index < shared_data->buffer_capacity; ++index) {
@@ -251,7 +253,7 @@ void* produce(void* data) {
  */
 void* consume(void* data) {
   // const private_data_t* private_data = (private_data_t*)data;
-  shared_data_t* shared_data = (shared_data_t*)data;
+  shared_data_t* shared_data = (shared_data_t*)data;  // NOLINT
   for (size_t round = 0; round < shared_data->rounds; ++round) {
     for (size_t index = 0; index < shared_data->buffer_capacity; ++index) {
       double value = shared_data->buffer[index];
