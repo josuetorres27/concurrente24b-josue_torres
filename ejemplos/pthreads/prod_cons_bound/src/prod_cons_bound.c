@@ -86,7 +86,7 @@ useconds_t random_between(useconds_t min, useconds_t max);
  * time of the simulation and calculating the elapsed time; free the allocated
  * memory; and return an appropriate error code.
  * 
- * @return `EXIT_SUCCESS` if the program runs successfully, or an error code.
+ * @return EXIT_SUCCESS if the program runs successfully, or an error code.
  */
 int main(int argc, char* argv[]) {
   int error = EXIT_SUCCESS;
@@ -242,7 +242,7 @@ void* produce(void* data) {
  * @brief Consumer thread function.
  * 
  * @details The consumer simulates consuming data from the buffer. It runs for
- * `rounds` iterations, where each iteration consists of reading and consuming
+ * 'rounds' iterations, where each iteration consists of reading and consuming
  * all items in the buffer. For each item in the buffer, the consumer also
  * introduces a random delay to simulate the time it takes to consume the item.
  * After consuming an item, it prints the consumed value.

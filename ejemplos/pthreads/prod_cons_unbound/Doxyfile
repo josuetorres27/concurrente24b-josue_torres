@@ -1,6 +1,6 @@
 @INCLUDE = ../../../common/Doxyfile
 
-PROJECT_NAME           = "prod_cons_bound"
+PROJECT_NAME           = "prod_cons_unbound"
 PROJECT_NUMBER         = 1.0.0
 PROJECT_BRIEF          = "Simulation of a producer-consumer problem"
 OUTPUT_DIRECTORY       = doc
