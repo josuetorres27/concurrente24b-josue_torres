@@ -1,5 +1,17 @@
 // Copyright 2021 Jeisson Hidalgo-Cespedes <jeisson.hidalgo@ucr.ac.cr> CC-BY-4
 
+/**
+ * @file simulation.c
+ * @brief Implements the producer-consumer simulation with an unbounded buffer.
+ * 
+ * @details This file defines the main functionality of the simulation,
+ * including the creation of the producer and consumer threads, the processing
+ * of command-line arguments, and the measurement of execution time. The
+ * simulation uses a shared unbounded buffer where producers generate data and
+ * consumers retrieve them. Synchronization is managed with semaphores and
+ * mutexes.
+ */
+
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
@@ -16,6 +28,15 @@ int analyze_arguments(simulation_t* simulation, int argc, char* argv[]);
 int create_consumers_producers(simulation_t* simulation);
 int join_threads(size_t count, pthread_t* threads);
 
+/**
+ * @brief Creates and initializes a simulation object.
+ * 
+ * @details Allocates memory for a simulation structure and initializes its
+ * fields, including mutexes, semaphores, and the unbounded queue.
+ * 
+ * @return A pointer to the initialized simulation object, or NULL if memory
+ * allocation fails.
+ */
 simulation_t* simulation_create() {
   simulation_t* simulation = (simulation_t*) calloc(1, sizeof(simulation_t));
   if (simulation) {
@@ -30,12 +51,13 @@ simulation_t* simulation_create() {
     pthread_mutex_init(&simulation->can_access_next_unit, /* attr */ NULL);
     simulation->next_unit = 0;
     sem_init(&simulation->can_consume, /* pshared */ 0, /* value */ 0);
-    pthread_mutex_init(&simulation->can_access_consumed_count, /* attr */ NULL);
+    pthread_mutex_init(&simulation->can_access_consumed_count, NULL);
     simulation->consumed_count = 0;
   }
   return simulation;
 }
 
+/** Destroys a simulation object and releases resources. */
 void simulation_destroy(simulation_t* simulation) {
   assert(simulation);
   pthread_mutex_destroy(&simulation->can_access_consumed_count);
@@ -45,6 +67,7 @@ void simulation_destroy(simulation_t* simulation) {
   free(simulation);
 }
 
+/** Performs the simulation. */
 int simulation_run(simulation_t* simulation, int argc, char* argv[]) {
   int error = analyze_arguments(simulation, argc, argv);
   if (error == EXIT_SUCCESS) {
@@ -104,6 +127,7 @@ int analyze_arguments(simulation_t* simulation, int argc, char* argv[]) {
   return error;
 }
 
+/** Creates producer or consumer threads. */
 pthread_t* create_threads(size_t count, void*(*subroutine)(void*), void* data) {
   pthread_t* threads = (pthread_t*) calloc(count, sizeof(pthread_t));
   if (threads) {
@@ -120,6 +144,13 @@ pthread_t* create_threads(size_t count, void*(*subroutine)(void*), void* data) {
   return threads;
 }
 
+/**
+ * @brief Joins the threads after execution is complete.
+ * 
+ * @param count Number of threads to join.
+ * @param threads Array of pthread_t representing the threads.
+ * @return EXIT_SUCCESS if threads are joined successfully, or an error code.
+ */
 int join_threads(size_t count, pthread_t* threads) {
   int error = EXIT_SUCCESS;
   for (size_t index = 0; index < count; ++index) {
@@ -130,6 +161,12 @@ int join_threads(size_t count, pthread_t* threads) {
   return error;
 }
 
+/**
+ * @brief Creates producer and consumer threads for the simulation.
+ * 
+ * @param simulation Pointer to the simulation structure.
+ * @return EXIT_SUCCESS if threads are created successfully, or an error code.
+ */
 int create_consumers_producers(simulation_t* simulation) {
   assert(simulation);
   int error = EXIT_SUCCESS;

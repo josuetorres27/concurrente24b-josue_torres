@@ -7,15 +7,27 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+/**
+ * @brief Represents a node in the queue.
+ * 
+ * @details Each node contains the data and a pointer to the next node in the
+ * queue.
+ */
 typedef struct queue_node {
   size_t data;
   struct queue_node* next;
 } queue_node_t;
 
+/**
+ * @brief Represents the queue data structure.
+ * 
+ * @details The queue is implemented using a linked list of queue_node_t
+ * elements. It is protected by a mutex to ensure thread-safe access.
+ */
 typedef struct {
-  pthread_mutex_t can_access_queue;
-  queue_node_t* head;
-  queue_node_t* tail;
+  pthread_mutex_t can_access_queue;  ///< Mutex for synchronizing access.
+  queue_node_t* head;  ///< Pointer to the front of the queue (oldest element).
+  queue_node_t* tail;  ///< Pointer to the back of the queue (newest element).
 } queue_t;
 
 /**

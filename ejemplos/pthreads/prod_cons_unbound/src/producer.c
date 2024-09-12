@@ -6,7 +6,7 @@
 #include "producer.h"
 
 void* produce(void* data) {
-  // const private_data_t* private_data = (private_data_t*)data;
+  /** Casts the data parameter to a pointer of type simulation_t. */
   simulation_t* simulation = (simulation_t*)data;
 
   while (true) {
@@ -14,7 +14,7 @@ void* produce(void* data) {
     size_t my_unit = 0;
     // lock(can_access_next_unit)
     pthread_mutex_lock(&simulation->can_access_next_unit);
-    // If is there pending work, take a unit for producing
+    /** If is there pending work, take a unit for producing. */
     if (simulation->next_unit < simulation->unit_count) {
       my_unit = ++simulation->next_unit;
     } else {
@@ -28,10 +28,11 @@ void* produce(void* data) {
 
     usleep(1000 * random_between(simulation->producer_min_delay
       , simulation->producer_max_delay));
+    /** Queues the produced unit to the shared queue. */
     queue_enqueue(&simulation->queue, my_unit);
     printf("Produced %zu\n", my_unit);
 
-    // signal(can_consume)
+    /** Makes a signal to the consumer when there are units available. */
     sem_post(&simulation->can_consume);
   }
 

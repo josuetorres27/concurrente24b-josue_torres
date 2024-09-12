@@ -3,6 +3,13 @@
 #ifndef SIMULATION_H
 #define SIMULATION_H
 
+/**
+ * @brief Opaque structure to hold the simulation state.
+ * 
+ * @details The actual contents of this structure are hidden from the user,
+ * allowing for encapsulation and better abstraction. The implementation
+ * details are defined in simulation.c.
+ */
 typedef struct simulation simulation_t;  // opaque record
 
 simulation_t* simulation_create();
