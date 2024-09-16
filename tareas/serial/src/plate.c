@@ -1,3 +1,5 @@
+// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+
 #include "plate.h"
 
 /**
@@ -20,9 +22,7 @@ int read_dimensions(const char* filepath, Plate* plate) {
     return EXIT_FAILURE;
   }
 
-  /**
-   * @brief Leer las dimensiones (8 bytes para filas, 8 bytes para columnas).
-   */
+  /** Leer las dimensiones (8 bytes para filas, 8 bytes para columnas). */
   if (fread(&(plate->rows), sizeof(long long int), 1, file) != 1 ||
     fread(&(plate->cols), sizeof(long long int), 1, file) != 1) {
     perror("Error reading plate dimensions");
@@ -53,22 +53,18 @@ int read_plate(const char* filepath, Plate* plate) {
     return EXIT_FAILURE;
   }
 
-  /**
-   * @brief Saltar los primeros 16 bytes que contienen las dimensiones.
-   */
+  /** Saltar los primeros 16 bytes que contienen las dimensiones. */
   fseek(file, 2 * sizeof(long long int), SEEK_SET);
 
   /**
    * @brief Asigna memoria para un arreglo de punteros, donde cada uno es una 
    * fila de la placa térmica.
    */
-  plate->data = (double**) malloc(plate->rows * sizeof(double *));
+  plate->data = (double**) malloc(plate->rows * sizeof(double *));  // NOLINT
 
-  /**
-   * @brief Se asigna memoria para cada fila de la matriz.
-   */
+  /** Se asigna memoria para cada fila de la matriz. */
   for (long long int i = 0; i < plate->rows; i++) {
-    plate->data[i] = (double*) malloc(plate->cols * sizeof(double));
+    plate->data[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
 
     /**
      * @brief Leer los datos de la placa térmica desde el archivo binario y 
@@ -105,31 +101,22 @@ int read_plate(const char* filepath, Plate* plate) {
  */
 void simulate(Plate* plate, double delta_t, double alpha, double h,
   double epsilon, int* k, time_t* time_seconds) {
-
-  /**
-   * @brief Inicialización de estructuras de datos.
-   */
+  /** Inicialización de estructuras de datos. */
   double max_delta;
-  double** next_plate = (double**) malloc(plate->rows * sizeof(double *));
+  double** next_plate = (double**) malloc(plate->rows * sizeof(double *));  // NOLINT
   for (long long int i = 0; i < plate->rows; i++) {
-    next_plate[i] = (double*) malloc(plate->cols * sizeof(double));
+    next_plate[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
   }
 
   *k = 0; /** Declaración de contadores. */
   *time_seconds = 0;
 
-  /**
-   * @brief Algoritmo de simulación de calor.
-   */
+  /** Algoritmo de simulación de calor. */
   do {
     max_delta = 0.0;
     for (long long int i = 1; i < plate->rows - 1; i++) {
       for (long long int j = 1; j < plate->cols - 1; j++) {
-
-        /**
-         * @brief Aplica la fórmula para calcular la nueva temperatura de cada 
-         * celda.
-         */
+        /** Aplica la fórmula para calcular la nueva temperatura. */
         next_plate[i][j] = plate->data[i][j] + (((delta_t * alpha) / (h * h)) *
           (plate->data[i-1][j] + plate->data[i+1][j] + plate->data[i][j-1] +
             plate->data[i][j+1] - (4 * plate->data[i][j])));
@@ -140,21 +127,15 @@ void simulate(Plate* plate, double delta_t, double alpha, double h,
         }
       }
     }
-
-    /**
-     * @brief Copiar nuevas temperaturas a la matriz principal.
-     */
+    /** Copiar nuevas temperaturas a la matriz principal. */
     for (long long int i = 1; i < plate->rows - 1; i++) {
       for (long long int j = 1; j < plate->cols - 1; j++) {
         plate->data[i][j] = next_plate[i][j];
       }
     }
-
     (*k)++; /** Incrementar contadores. */
     *time_seconds += delta_t;
-
   } while (max_delta > epsilon); /** Condición de parada. */
-
   for (long long int i = 0; i < plate->rows; i++) { /** Liberar memoria. */
     free(next_plate[i]);
   }
@@ -179,16 +160,11 @@ int write_plate(const char* filepath, Plate* plate) {
     return EXIT_FAILURE;
   }
 
-  /**
-   * @brief Escritura de las dimensiones de la matriz.
-   */
+  /** Escritura de las dimensiones de la matriz. */
   fwrite(&(plate->rows), sizeof(long long int), 1, file);
   fwrite(&(plate->cols), sizeof(long long int), 1, file);
 
-  /**
-   * @brief Escribe cada fila de la matriz de temperaturas en el archivo 
-   * binario.
-   */
+  /** Escribe cada fila de la matriz de temperaturas en el archivo binario. */
   for (long long int i = 0; i < plate->rows; i++) {
     fwrite(plate->data[i], sizeof(double), plate->cols, file);
   }

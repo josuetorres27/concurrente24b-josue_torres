@@ -1,3 +1,5 @@
+// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+
 #include "plate.h"
 
 /**
@@ -29,43 +31,58 @@ char* format_time(const time_t seconds, char* text, const size_t capacity) {
  * @param epsilon Mínimo cambio de temperatura significativo.
  * @param k Puntero donde se almacenará la cantidad de estados.
  * @param time_seconds Tiempo total en segundos que duró la simulación.
+ * @param output_dir Directorio de salida donde se almacenará el reporte.
  * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
  * un error.
  */
 int create_report(const char* job_file, const char* plate_filename,
   double delta_t, double alpha, double h, double epsilon, int k,
-    time_t time_seconds) {
+    time_t time_seconds, const char* output_dir) {
   /**
-   * @brief Generar el nombre del archivo de reporte.
+   * @brief Generar el nombre del archivo de reporte basado en job_file y
+   * cambiar la extensión a .tsv.
    */
   char report_filename[MAX_PATH_LENGTH];
-  strncpy(report_filename, job_file, MAX_PATH_LENGTH - 1);
+  /** Extraer el nombre base del archivo de trabajo sin extensión. */
+  const char* base_name = strrchr(job_file, '/');
+  if (!base_name) {
+    /** Si no hay '/', el archivo está en el directorio actual. */
+    base_name = job_file;
+  } else {
+    base_name++;  /** Saltar el '/'. */
+  }
+
+  /** Copiar el nombre base al buffer. */
+  strncpy(report_filename, base_name, MAX_PATH_LENGTH - 1);
   report_filename[MAX_PATH_LENGTH - 1] = '\0';
-  /**
-   * @brief Modificar el nombre del archivo para que tenga la extensión .tsv. 
-   * Dependiendo de si el archivo original tiene la extensión .txt o no, la 
-   * extensión será reemplazada o añadida al nombre.
-   */
-  char *dot_position = strrchr(report_filename, '.');
-  if (dot_position != NULL && strcmp(dot_position, ".txt") == 0) {
+  /** Modificar el nombre del archivo para que tenga la extensión .tsv. */
+  char* dot_position = strrchr(report_filename, '.');
+  if (dot_position != NULL) {
     strcpy(dot_position, ".tsv");
   } else {
-    strncat(report_filename, ".tsv", MAX_PATH_LENGTH - strlen(report_filename) 
+    strncat(report_filename, ".tsv", MAX_PATH_LENGTH - strlen(report_filename)
       - 1);
   }
-  /**
-   * @brief Apertura del archivo de reporte.
-   */
-  FILE* report_file = fopen(report_filename, "a");
+
+  /** Construir la ruta completa con el directorio de salida. */
+  char full_report_path[MAX_PATH_LENGTH];
+  int written = snprintf(full_report_path, sizeof(full_report_path), "%s/%s",
+    output_dir, report_filename);
+  /** Verificar si la ruta al directorio de salida es demasiado larga. */
+  if (written < 0 || written >= sizeof(full_report_path)) {
+    fprintf(stderr, "Error: the full report path is too long\n");
+    return EXIT_FAILURE;
+  }
+
+  /** Apertura del archivo de reporte. */
+  FILE* report_file = fopen(full_report_path, "a");
   if (report_file == NULL) {
     perror("Error opening the report file");
     return EXIT_FAILURE;
   }
   char formatted_time[48]; /** Formatear el tiempo total de simulación. */
   format_time(time_seconds, formatted_time, sizeof(formatted_time));
-  /**
-   * @brief Escribir los datos en el archivo de reporte.
-   */
+  /** Escribir los datos en el archivo de reporte. */
   fprintf(report_file, "%s\t%lf\t%lf\t%lf\t%lf\t%d\t%s\n", plate_filename,
     delta_t, alpha, h, epsilon, k, formatted_time);
   fclose(report_file);

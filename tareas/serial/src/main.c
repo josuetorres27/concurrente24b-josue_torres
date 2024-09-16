@@ -1,3 +1,5 @@
+// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+
 #include "plate.h"
 
 /**
@@ -27,18 +29,31 @@ int main(int argc, char *argv[]) {
    * @brief Verifica que los argumentos proporcionados en la línea de comandos 
    * sean correctos.
    */
-  if (argc < 2 || argc > 4) {
-    fprintf(stderr, "Usage: %s <job file> [thread count] [file directory]\n",
-      argv[0]);
+  if (argc < 3 || argc > 5) {
+    fprintf(stderr,
+      "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
+        argv[0]);
     return EXIT_FAILURE;
   }
+
   /**
    * @brief Configura las variables y rutas necesarias, como el número de 
-   * hilos y el directorio de trabajo.
+   * hilos, el directorio de trabajo y el directorio de salida de los archivos.
    */
   const char* job_file = argv[1];
-  int num_threads = (argc >= 3) ? atoi(argv[2]) : 1;
-  const char* dir_prefix = (argc == 4) ? argv[3] : ".";
+  // int num_threads = (argc >= 4) ? atoi(argv[2]) : 1;
+  const char* input_dir = (argc >= 4) ? argv[argc - 2] : ".";
+  const char* output_dir = (argc >= 5) ? argv[argc - 1] : ".";
+  /** Verificar si el directorio de salida existe. */
+  struct stat st = {0};
+  if (stat(output_dir, &st) == -1) {
+    /** Crear el directorio si no existe. */
+    if (mkdir(output_dir, 0700) != 0) {
+      perror("Error creating output directory");
+      return EXIT_FAILURE;
+    }
+  }
+
   /**
    * @brief Abre el archivo de trabajo especificado por el usuario, que 
    * contiene las especificaciones para la simulación.
@@ -48,36 +63,34 @@ int main(int argc, char *argv[]) {
     perror("Error opening the job file");
     return EXIT_FAILURE;
   }
-  char filepath[MAX_PATH_LENGTH];
+
+  char input_filepath[MAX_PATH_LENGTH];
   char plate_filename[MAX_PATH_LENGTH];
   double delta_t, alpha, h, epsilon;
-  /**
-   * @brief Bucle de lectura de configuración del archivo de trabajo.
-   */
+
+  /** Bucle de lectura de configuración del archivo de trabajo. */
   while (fscanf(file, "%s %lf %lf %lf %lf", plate_filename, &delta_t, &alpha,
     &h, &epsilon) == 5) {
-    /**
-     * @brief Verificar el tamaño de la ruta.
-     */
-    int written = snprintf(filepath, sizeof(filepath), "%s/%s", dir_prefix,
-      plate_filename);
-    if (written < 0 || written >= sizeof(filepath)) {
+    /** Verificar el tamaño de la ruta. */
+    int written = snprintf(input_filepath, sizeof(input_filepath), "%s/%s",
+      input_dir, plate_filename);
+    if (written < 0 || written >= (int) sizeof(input_filepath)) {  // NOLINT
       fprintf(stderr, "Error: the file path is too long\n");
       fclose(file);
       return EXIT_FAILURE;
     }
-    /**
-     * @brief Leer las dimensiones y datos de la placa.
-     */
+
+    /** Leer las dimensiones y datos de la placa. */
     Plate plate;
-    if (read_dimensions(filepath, &plate) != EXIT_SUCCESS) {
+    if (read_dimensions(input_filepath, &plate) != EXIT_SUCCESS) {
       fclose(file);
       return EXIT_FAILURE;
     }
-    if (read_plate(filepath, &plate) != EXIT_SUCCESS) {
+    if (read_plate(input_filepath, &plate) != EXIT_SUCCESS) {
       fclose(file);
       return EXIT_FAILURE;
     }
+
     /**
      * @brief Realiza una simulación para cada lámina especificada en el archivo 
      * de trabajo.
@@ -93,22 +106,17 @@ int main(int argc, char *argv[]) {
     int k;
     time_t time_seconds;
     simulate(&plate, delta_t, alpha, h, epsilon, &k, &time_seconds);
-    /**
-     * @brief Genera el reporte de la simulación.
-     */
+
+    /** Genera el reporte de la simulación. */
     create_report(job_file, plate_filename, delta_t, alpha, h, epsilon, k,
-      time_seconds);
-    /**
-     * @brief Construcción y configuración del nombre del archivo de salida.
-     */
+      time_seconds, output_dir);
+    /** Construcción y configuración del nombre del archivo de salida. */
     char output_filename[MAX_PATH_LENGTH];
-    snprintf(output_filename, sizeof(output_filename), "plate%03d-%d.bin",
-      atoi(&plate_filename[5]), k);
+    snprintf(output_filename, sizeof(output_filename), "%s/plate%03d-%d.bin",
+      output_dir, atoi(&plate_filename[5]), k);
     write_plate(output_filename, &plate);
-    /**
-     * @brief Libera la memoria dinámica que se ha utilizado durante la 
-     * ejecución.
-     */
+
+    /** Libera la memoria dinámica que se ha utilizado durante la ejecución. */
     for (long long int i = 0; i < plate.rows; i++) {
       free(plate.data[i]);
     }
