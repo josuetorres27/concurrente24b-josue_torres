@@ -4,6 +4,7 @@
 #define PLATE_H
 
 #include <math.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,23 @@ typedef struct {
   long long int cols; /** Número de columnas. */
   double** data; /** Puntero a la matriz de datos. */
 } Plate;
+
+typedef struct {
+  Plate* plate;
+  double delta_t;
+  double alpha;
+  double h;
+  double epsilon;
+  int* k;
+  time_t* time_seconds;
+  pthread_mutex_t* mutex;  /** Mutex compartido para proteger el acceso. */
+} SharedData;
+
+typedef struct {
+  long long int start_row;  /** Cada hilo procesa un subconjunto de filas. */
+  long long int end_row;
+  int thread_id;
+} PrivateData;
 
 /** Declaración de funciones relacionadas con Plate. */
 int read_dimensions(const char* filepath, Plate* plate);

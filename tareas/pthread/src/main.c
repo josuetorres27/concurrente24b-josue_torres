@@ -41,7 +41,9 @@ int main(int argc, char *argv[]) {
    * hilos, el directorio de trabajo y el directorio de salida de los archivos.
    */
   const char* job_file = argv[1];
-  // int num_threads = (argc >= 4) ? atoi(argv[2]) : 1;
+  /** Obtener el número de CPUs disponibles si no se proporcionan hilos. */
+  int num_threads = (argc >= 4) ? atoi(argv[2]) :
+    sysconf(_SC_NPROCESSORS_ONLN);
   const char* input_dir = (argc >= 4) ? argv[argc - 2] : ".";
   const char* output_dir = (argc >= 5) ? argv[argc - 1] : ".";
   /** Verificar si el directorio de salida existe. */
