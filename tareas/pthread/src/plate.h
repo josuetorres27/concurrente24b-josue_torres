@@ -29,28 +29,39 @@ typedef struct {
   double** data; /** Puntero a la matriz de datos. */
 } Plate;
 
+/**
+ * @brief Estructura para almacenar los datos compartidos entre hilos, 
+ * incluyendo el mutex.
+ */
 typedef struct {
-  Plate* plate;
-  double delta_t;
-  double alpha;
-  double h;
-  double epsilon;
-  int* k;
-  time_t* time_seconds;
+  Plate* plate;  /* Puntero a la estructura que contiene la matriz de datos. */
+  double delta_t;  /* Tiempo permitido entre un estado y otro. */
+  double alpha;  /* Coeficiente de difusión térmica. */
+  double h;  /* Alto y ancho de cada celda. */
+  double epsilon;  /* Mínimo cambio de temperatura significativo. */
+  int* k;  /* Puntero donde se almacenará la cantidad de estados. */
+  time_t* time_seconds;  /* Puntero para el tiempo total en segundos. */
   pthread_mutex_t* mutex;  /** Mutex compartido para proteger el acceso. */
 } SharedData;
 
+/** Estructura para los datos privados de cada hilo. */
 typedef struct {
-  long long int start_row;  /** Cada hilo procesa un subconjunto de filas. */
+  /** Cada hilo procesa un subconjunto de filas con principio y fin. */
+  long long int start_row;
   long long int end_row;
   int thread_id;
 } PrivateData;
 
+/** Estructura para agrupar los datos compartidos y privados. */
+typedef struct {
+  SharedData* shared_data;
+  PrivateData private_data;
+} ThreadData;
+
 /** Declaración de funciones relacionadas con Plate. */
 int read_dimensions(const char* filepath, Plate* plate);
 int read_plate(const char* filepath, Plate* plate);
-void simulate(Plate* plate, double delta_t, double alpha, double h,
-  double epsilon, int* k, time_t* time_seconds);
+void* simulate(void* arg);
 int write_plate(const char* filepath, Plate* plate);
 
 /** Declaración de funciones auxiliares en utils.c. */

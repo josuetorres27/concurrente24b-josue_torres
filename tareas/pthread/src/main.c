@@ -69,21 +69,22 @@ int main(int argc, char *argv[]) {
   char input_filepath[MAX_PATH_LENGTH];
   char plate_filename[MAX_PATH_LENGTH];
   double delta_t, alpha, h, epsilon;
+  Plate plate;
+  int k;
+  time_t time_seconds;
 
   /** Bucle de lectura de configuración del archivo de trabajo. */
   while (fscanf(file, "%s %lf %lf %lf %lf", plate_filename, &delta_t, &alpha,
     &h, &epsilon) == 5) {
     /** Verificar el tamaño de la ruta. */
-    int written = snprintf(input_filepath, sizeof(input_filepath), "%s/%s",
-      input_dir, plate_filename);
-    if (written < 0 || written >= (int) sizeof(input_filepath)) {  // NOLINT
-      fprintf(stderr, "Error: the file path is too long\n");
+    snprintf(input_filepath, sizeof(input_filepath), "%s/%s", input_dir, plate_filename);
+    if (read_dimensions(input_filepath, &plate) != EXIT_SUCCESS ||
+      read_plate(input_filepath, &plate) != EXIT_SUCCESS) {
       fclose(file);
       return EXIT_FAILURE;
     }
 
     /** Leer las dimensiones y datos de la placa. */
-    Plate plate;
     if (read_dimensions(input_filepath, &plate) != EXIT_SUCCESS) {
       fclose(file);
       return EXIT_FAILURE;
@@ -105,9 +106,7 @@ int main(int argc, char *argv[]) {
      * - Genera un archivo de reporte con los resultados de la simulación.
      * - Guarda el estado final de la matriz en un archivo binario.
      */
-    int k;
-    time_t time_seconds;
-    simulate(&plate, delta_t, alpha, h, epsilon, &k, &time_seconds);
+    //simulate(&plate, delta_t, alpha, h, epsilon, &k, &time_seconds);
 
     /** Genera el reporte de la simulación. */
     create_report(job_file, plate_filename, delta_t, alpha, h, epsilon, k,

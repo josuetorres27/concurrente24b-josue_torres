@@ -91,35 +91,36 @@ int read_plate(const char* filepath, Plate* plate) {
  * temperatura de la placa sea menor que un valor epsilon, lo que indica que 
  * se ha alcanzado el equilibrio térmico.
  * 
- * @param plate Puntero a la estructura que contiene la matriz de datos.
- * @param delta_t Tiempo permitido entre un estado y otro.
- * @param alpha Coeficiente de difusión térmica.
- * @param h Alto y ancho de cada celda.
- * @param epsilon Mínimo cambio de temperatura significativo.
- * @param k Puntero donde se almacenará la cantidad de estados.
- * @param time_seconds Puntero donde se almacenará el tiempo total en segundos.
+ * @param
  */
-void simulate(Plate* plate, double delta_t, double alpha, double h,
-  double epsilon, int* k, time_t* time_seconds) {
+void* simulate(void* arg) {
   /** Inicialización de estructuras de datos. */
-  double max_delta;
-  double** next_plate = (double**) malloc(plate->rows * sizeof(double *));  // NOLINT
-  for (long long int i = 0; i < plate->rows; i++) {
+  ThreadData* data = (ThreadData*) arg;
+  Plate* plate = data->shared_data->plate;
+  double delta_t = data->shared_data->delta_t;
+  double alpha = data->shared_data->alpha;
+  double h = data->shared_data->h;
+  double epsilon = data->shared_data->epsilon;
+  int* k = data->shared_data->k;
+  double max_delta = 0.0;
+
+  double** next_plate = (double**) malloc((data->private_data.end_row -
+    data->private_data.start_row) * sizeof(double*));  // NOLINT
+  for (long long int i = 0; i < (data->private_data.end_row -
+    data->private_data.start_row); i++) {
     next_plate[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
   }
 
-  *k = 0; /** Declaración de contadores. */
-  *time_seconds = 0;
-
   /** Algoritmo de simulación de calor. */
   do {
-    max_delta = 0.0;
-    for (long long int i = 1; i < plate->rows - 1; i++) {
+    for (long long int i = data->private_data.start_row; i <
+      data->private_data.end_row; i++) {
       for (long long int j = 1; j < plate->cols - 1; j++) {
         /** Aplica la fórmula para calcular la nueva temperatura. */
-        next_plate[i][j] = plate->data[i][j] + (((delta_t * alpha) / (h * h)) *
-          (plate->data[i-1][j] + plate->data[i+1][j] + plate->data[i][j-1] +
-            plate->data[i][j+1] - (4 * plate->data[i][j])));
+        next_plate[i - data->private_data.start_row][j] = plate->data[i][j] +
+          (((delta_t * alpha) / (h * h)) * (plate->data[i-1][j] +
+            plate->data[i+1][j] + plate->data[i][j-1] + plate->data[i][j+1] -
+              (4 * plate->data[i][j])));
 
         double delta = fabs(next_plate[i][j] - plate->data[i][j]);
         if (delta > max_delta) {
@@ -127,19 +128,28 @@ void simulate(Plate* plate, double delta_t, double alpha, double h,
         }
       }
     }
+    /** Proteger el acceso al contador global y tiempo con mutex. */
+    pthread_mutex_lock(&data->shared_data->mutex);
+
     /** Copiar nuevas temperaturas a la matriz principal. */
-    for (long long int i = 1; i < plate->rows - 1; i++) {
+    for (long long int i = data->private_data.start_row; i <
+      data->private_data.end_row; i++) {
       for (long long int j = 1; j < plate->cols - 1; j++) {
-        plate->data[i][j] = next_plate[i][j];
+        plate->data[i][j] = next_plate[i - data->private_data.start_row][j];
       }
     }
-    (*k)++; /** Incrementar contadores. */
-    *time_seconds += delta_t;
+    (*data->shared_data->k)++;  /** Incrementar el contador de iteraciones. */
+    *data->shared_data->time_seconds += delta_t;  /** Incrementar el tiempo. */
+
+    pthread_mutex_unlock(&data->shared_data->mutex);
+
   } while (max_delta > epsilon); /** Condición de parada. */
-  for (long long int i = 0; i < plate->rows; i++) { /** Liberar memoria. */
+  for (long long int i = 0; i < (data->private_data.end_row -
+    data->private_data.start_row); i++) { /** Liberar memoria. */
     free(next_plate[i]);
   }
   free(next_plate);
+  pthread_exit(NULL);
 }
 
 /**
