@@ -41,11 +41,11 @@
 2. Cuando un hilo decrementa un semáforo, si el resultado es negativo, el hilo es bloqueado y no puede continuar hasta que otro hilo incremente el semáforo.
 3. Cuando un hilo incrementa un semáforo, si hay otros threads esperando, uno de ellos será desbloqueado. Tanto el hilo que incrementa el semáforo como el que fue desbloqueado siguen ejecutándose concurrentemente. Si hay varios hilos esperando, no hay forma de saber cuál de ellos será el desbloqueado por el scheduler del sistema operativo. El programador no tiene forma de saber si al incrementar un semáforo, se desbloqueará o no un hilo en espera, dado que no se puede leer el valor actual del semáforo por la regla 1.
 
-* Barrera:
+* Barrera: mecanismo de sincronización en programación paralela que asegura que todos los hilos deben llegar a un cierto punto de ejecución antes de que cualquiera de ellos pueda continuar. Es como un "punto de encuentro" donde los hilos esperan hasta que todos hayan alcanzado esa barrera, y luego todos avanzan al mismo tiempo.
 
-* Variable de condición:
+* Variable de condición: estructura utilizada para coordinar el acceso a recursos compartidos entre hilos. Permite que un hilo espere hasta que una cierta condición específica sea verdadera, y luego continúa ejecutándose. Los hilos pueden "dormir" en una variable de condición y ser "despertados" cuando otro hilo indica que la condición se ha cumplido.
 
-* Candado de lectura y escritura:
+* Candado de lectura y escritura: tipo especial de candado que permite a varios hilos leer un recurso al mismo tiempo, pero solo permite a un hilo escribir. Mientras un hilo está escribiendo, nadie más (ni lectores ni escritores) puede acceder al recurso. Sin embargo, múltiples lectores pueden acceder simultáneamente siempre que no haya nadie escribiendo.
 
 * Descomposición: en un problema, la descomposición es identificar las tareas o unidades de trabajo que se pueden realizar de forma independiente, y por lo tanto, de forma paralela. Una vez definidas, las tareas se consideran unidades indivisibles de computación.
 
