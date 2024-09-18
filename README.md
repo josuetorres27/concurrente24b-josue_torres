@@ -47,11 +47,11 @@
 
 * Candado de lectura y escritura:
 
-* Descomposición:
+* Descomposición: en un problema, la descomposición es identificar las tareas o unidades de trabajo que se pueden realizar de forma independiente, y por lo tanto, de forma paralela. Una vez definidas, las tareas se consideran unidades indivisibles de computación.
 
-* Mapeo:
+* Mapeo: consiste en asignar las unidades de trabajo hechas en la descomposición a los ejecutantes (procesos o hilos de ejecución).
 
-* Incremento de velocidad:
+* Incremento de velocidad / speedup / Aceleración: métrica de qué tanto rendimiento se gana al dividir las tareas en varias unidades de procesamiento. Se calcula como la relación entre el tiempo que tarda una computación previa a la optimización (Tbefore), contra el tiempo que tarda la misma computación posterior a la optimización (Tafter).
 
 * Comunicación punto a punto entre procesos:
 
