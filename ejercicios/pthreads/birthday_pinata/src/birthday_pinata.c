@@ -18,7 +18,7 @@ typedef struct {
 } ThreadData;
 
 void* hit_pinata(void* arg) {
-  ThreadData* data = reinterpret_cast<ThreadData*> arg;
+  ThreadData* data = (ThreadData*) arg;
   SharedData* shared = data->shared_data;  // Acceso a los datos compartidos
   data->hits = 0;  // Inicializar el contador de golpes del hilo
 

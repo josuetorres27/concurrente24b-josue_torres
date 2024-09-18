@@ -32,7 +32,7 @@ char* format_time(const time_t seconds, char* text, const size_t capacity) {
  * @param k Puntero donde se almacenará la cantidad de estados.
  * @param time_seconds Tiempo total en segundos que duró la simulación.
  * @param output_dir Directorio de salida donde se almacenará el reporte.
- * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre 
+ * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre
  * un error.
  */
 int create_report(const char* job_file, const char* plate_filename,
