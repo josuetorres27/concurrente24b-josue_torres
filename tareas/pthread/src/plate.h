@@ -31,7 +31,8 @@ typedef struct {
 
 typedef struct SharedData {
   pthread_mutex_t write_mutex;
-  int current_line;
+  int current_turn; /** Controla cuál hilo debe escribir. */
+  pthread_cond_t turn_cond; /** Condición para sincronizar la escritura. */
 } SharedData;
 
 typedef struct SimulationData {
@@ -39,22 +40,22 @@ typedef struct SimulationData {
   char plate_filename[MAX_PATH_LENGTH];
   const char* job_file;
   double delta_t, alpha, h, epsilon;
-  int line_number;
+  int thread_index; /** Índice del hilo para garantizar el orden de escritura. */
   const char* output_dir;
-  SharedData* shared_data;  /** Puntero a la estructura compartida. */
+  SharedData* shared_data; /** Puntero a la estructura compartida. */
 } SimulationData;
 
 /** Declaración de funciones relacionadas con Plate. */
 int read_dimensions(const char* filepath, Plate* plate);
 int read_plate(const char* filepath, Plate* plate);
-void simulate(Plate* plate, double delta_t, double alpha, double h,
+void simulate(Plate* plate, double delta_t, double alpha, double h, 
   double epsilon, int* k, time_t* time_seconds);
 int write_plate(const char* filepath, Plate* plate);
 
 /** Declaración de funciones auxiliares en utils.c. */
 char* format_time(const time_t seconds, char* text, const size_t capacity);
-int create_report(const char* job_file, const char* plate_filename,
-  double delta_t, double alpha, double h, double epsilon, int k,
+int create_report(const char* job_file, const char* plate_filename, 
+  double delta_t, double alpha, double h, double epsilon, int k, 
     time_t time_seconds, const char* output_dir);
 
 #endif  // TAREAS_SERIAL_SRC_PLATE_H_
