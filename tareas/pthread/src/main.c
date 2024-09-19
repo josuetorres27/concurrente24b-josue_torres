@@ -75,7 +75,8 @@ int count_job_lines(const char* job_file) {
 
 int main(int argc, char *argv[]) {
   if (argc < 3 || argc > 5) {
-    fprintf(stderr, "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
+    fprintf(stderr,
+      "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
         argv[0]);
     return EXIT_FAILURE;
   }
@@ -97,6 +98,11 @@ int main(int argc, char *argv[]) {
   int total_jobs = count_job_lines(job_file);
   if (total_jobs < 0) {
     return EXIT_FAILURE;  // Error al contar las líneas
+  }
+
+  // Ajustar el número de hilos al número de trabajos si es necesario
+  if (num_threads > total_jobs) {
+    num_threads = total_jobs;
   }
 
   FILE* file = fopen(job_file, "r");
