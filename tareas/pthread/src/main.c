@@ -57,10 +57,25 @@ void* process_simulation(void* arg) {
   pthread_exit(NULL);
 }
 
+// Función para contar las líneas de trabajo en el archivo de trabajo
+int count_job_lines(const char* job_file) {
+  FILE* file = fopen(job_file, "r");
+  if (file == NULL) {
+    perror("Error opening the job file");
+    return -1;
+  }
+  int count = 0;
+  char line[1024];
+  while (fgets(line, sizeof(line), file)) {
+    count++;
+  }
+  fclose(file);
+  return count;
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 3 || argc > 5) {
-    fprintf(stderr,
-      "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
+    fprintf(stderr, "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
         argv[0]);
     return EXIT_FAILURE;
   }
@@ -78,6 +93,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Contar la cantidad total de trabajos en el archivo
+  int total_jobs = count_job_lines(job_file);
+  if (total_jobs < 0) {
+    return EXIT_FAILURE;  // Error al contar las líneas
+  }
+
   FILE* file = fopen(job_file, "r");
   if (file == NULL) {
     perror("Error opening the job file");
@@ -90,18 +111,16 @@ int main(int argc, char *argv[]) {
   pthread_cond_init(&shared_data.turn_cond, NULL);
   shared_data.current_turn = 0;  // Inicializamos en 0 para que el primer hilo sea el 0
 
-  char line[1024];
   pthread_t threads[num_threads];
-  int thread_count = 0;
+  int thread_count = 0;  // Contador de hilos en ejecución
   char plate_filename[MAX_PATH_LENGTH];
   double delta_t, alpha, h, epsilon;
-  int thread_index = 0;  // Índice para los hilos
+  int job_index = 0;
 
   while (fscanf(file, "%s %lf %lf %lf %lf", plate_filename, &delta_t, &alpha, &h, &epsilon) == 5) {
     // Crear la estructura SimulationData para pasarle los datos a cada hilo
     SimulationData* data = (SimulationData*) malloc(sizeof(SimulationData));
 
-    // Calcular el tamaño necesario para el filepath
     int needed_size = snprintf(NULL, 0, "%s/%s", input_dir, plate_filename) + 1; // +1 para el terminador nulo
 
     if (needed_size > sizeof(data->input_filepath)) {
@@ -110,9 +129,7 @@ int main(int argc, char *argv[]) {
       pthread_exit(NULL);  // O manejar el error apropiadamente
     }
 
-    // Si el tamaño es adecuado, copiar la cadena de forma segura
     snprintf(data->input_filepath, sizeof(data->input_filepath), "%s/%s", input_dir, plate_filename);
-
     strcpy(data->plate_filename, plate_filename);
     data->delta_t = delta_t;
     data->alpha = alpha;
@@ -120,7 +137,7 @@ int main(int argc, char *argv[]) {
     data->epsilon = epsilon;
     data->job_file = job_file;
     data->output_dir = output_dir;
-    data->thread_index = thread_index;  // Asignar el índice del hilo
+    data->thread_index = job_index;  // Asignar el índice del hilo
     data->shared_data = &shared_data;  // Pasar el puntero a SharedData
 
     // Crear el hilo
@@ -130,24 +147,21 @@ int main(int argc, char *argv[]) {
     }
 
     thread_count++;
-    thread_index++;
+    job_index++;
 
-    // Si llegamos al límite de hilos, esperamos a que terminen
-    if (thread_count == num_threads) {
+    // Si hemos alcanzado el número máximo de hilos permitidos, esperamos que terminen
+    if (thread_count == num_threads || job_index == total_jobs) {
+      // Esperar a que todos los hilos del lote actual terminen
       for (int i = 0; i < thread_count; i++) {
         pthread_join(threads[i], NULL);
       }
-      thread_count = 0;  // Reiniciamos el contador de hilos
+      thread_count = 0;  // Reiniciar el contador de hilos para el siguiente lote
     }
   }
 
-  // Esperar a que los hilos restantes terminen
-  for (int i = 0; i < thread_count; i++) {
-    pthread_join(threads[i], NULL);
-  }
-
-  // Cerrar el archivo y destruir mutex y condiciones
   fclose(file);
+
+  // Destruir los mutex y condiciones
   pthread_mutex_destroy(&shared_data.write_mutex);
   pthread_cond_destroy(&shared_data.turn_cond);
 
