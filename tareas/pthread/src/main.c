@@ -76,16 +76,56 @@ int count_job_lines(const char* job_file) {
 int main(int argc, char *argv[]) {
   if (argc < 3 || argc > 5) {
     fprintf(stderr,
-      "Usage: %s <job file> <thread count> <input dir> <output dir>\n",
+      "Usage: %s <job file> [<thread count>] <input dir> <output dir>\n",
         argv[0]);
     return EXIT_FAILURE;
   }
 
   const char* job_file = argv[1];
-  int num_threads = (argc >= 4) ? atoi(argv[2]) : 1;
-  const char* input_dir = (argc >= 4) ? argv[argc - 2] : ".";
-  const char* output_dir = (argc >= 5) ? argv[argc - 1] : ".";
 
+  // Si no se ingresan hilos, usar el número de CPUs disponibles
+  int num_threads;
+  if (argc >= 4 && isdigit(argv[2][0])) { // Verificamos si el argumento de hilos es válido
+    num_threads = atoi(argv[2]);
+    if (num_threads <= 0) {
+      num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+      if (num_threads <= 0) {
+        perror("Error detecting number of CPUs");
+        return EXIT_FAILURE;
+      }
+      else {
+        printf("Invalid thread count. Using %d threads (detected from CPUs)\n", num_threads);
+      }
+    }
+   } else {
+    // Detectar número de procesadores si no se especifica
+    num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+    if (num_threads <= 0) {
+      perror("Error detecting number of CPUs");
+      return EXIT_FAILURE;
+    }
+    printf("Using %d threads (detected from CPUs)\n", num_threads);
+  }
+
+  // Verificar que los directorios estén bien especificados
+  const char* input_dir;
+  const char* output_dir;
+  
+  if (argc == 3) {  // No se especificó el número de hilos, input_dir ni output_dir
+    input_dir = ".";
+    output_dir = ".";
+  } else if (argc == 4) {  // Se especificó solo input_dir y output_dir
+    input_dir = argv[2];
+    output_dir = argv[3];
+  } else if (argc == 5) {  // Se especificaron thread count, input_dir y output_dir
+    input_dir = argv[argc - 2];
+    output_dir = argv[argc - 1];
+  } else {
+    input_dir = ".";
+    output_dir = ".";
+  }
+
+  // Crear el directorio de salida si no existe
   struct stat st = {0};
   if (stat(output_dir, &st) == -1) {
     if (mkdir(output_dir, 0700) != 0) {
