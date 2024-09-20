@@ -7,12 +7,41 @@
  * @brief Programa para realizar simulaciones de propagación de calor en una
  * lámina.
  * 
- * @details El programa lee las dimensiones y valores iniciales de temperatura
- * de una lámina desde un archivo binario, realiza una simulación de
- * propagación de calor para encontrar el momento de equilibro térmico, y
- * genera archivos de reporte y salida con los resultados.
+ * @details El programa utiliza hilos para leer las dimensiones y valores
+ * iniciales de temperatura de una lámina desde un archivo binario, realizar
+ * una simulación de propagación de calor para encontrar el momento de
+ * equilibro térmico, y generar archivos de reporte y salida con los
+ * resultados. Cada hilo realiza el proceso completo para una lámina.
  */
 
+/**
+ * @brief Función principal para ejecutar las simulaciones térmicas utilizando
+ * múltiples hilos.
+ * 
+ * @details La función toma como entrada un archivo de trabajo que contiene las
+ * especificaciones de varias simulaciones térmicas a realizar. Cada línea en
+ * el archivo contiene información sobre un trabajo de simulación. El programa
+ * puede utilizar una cantidad de hilos especificada por el usuario o detectar
+ * el número de procesadores disponibles para determinar la cantidad de hilos a
+ * crear. Se crea un directorio de salida si no existe y ejecuta las
+ * simulaciones en paralelo utilizando los hilos asignados, repartiendo el
+ * trabajo de forma equitativa entre ellos. Si se asignan más hilos que
+ * trabajos, se ajusta la cantidad de hilos al número de trabajos.
+ * 
+ * @param argc Cantidad de argumentos pasados por línea de comandos. Deben ser
+ * entre 3 y 5.
+ * 
+ * @param argv Argumentos de línea de comandos.
+ * - 1: Nombre del programa.
+ * - 2: Archivo de trabajo que contiene los datos de la simulación.
+ * - 3: [Opcional] Número de hilos. Si no se especifica, se utilizará el número
+ * de procesadores disponibles.
+ * - 4: Directorio de entrada donde se encuentran los archivos de placas.
+ * - 5: Directorio de salida donde se guardarán los resultados.
+ * 
+ * @return EXIT_SUCCESS si el programa se ejecuta correctamente. EXIT_FAILURE
+ * si ocurre algún error.
+ */
 int main(int argc, char *argv[]) {
   if (argc < 3 || argc > 5) {
     fprintf(stderr,
@@ -23,7 +52,7 @@ int main(int argc, char *argv[]) {
   const char* job_file = argv[1];
   /** Si no se ingresan hilos, usar el número de CPUs disponibles. */
   int num_threads;
-  /** Verificamos si el argumento de hilos es válido. */
+  /** Verificar si el argumento de hilos es válido. */
   if (argc >= 4 && isdigit(argv[2][0])) {
     num_threads = atoi(argv[2]);
     if (num_threads <= 0) {
@@ -49,7 +78,7 @@ int main(int argc, char *argv[]) {
   /** Verificar que los directorios estén bien especificados. */
   const char* input_dir;
   const char* output_dir;
-  /** No se especificó el número de hilos, input_dir ni output_dir. */
+  /** Si no se especificó el número de hilos, input_dir ni output_dir. */
   if (argc == 3) {
     input_dir = ".";
     output_dir = ".";
@@ -90,15 +119,33 @@ int main(int argc, char *argv[]) {
 
   /** Inicializar SharedData. */
   SharedData shared_data;
+  /**
+   * Inicializa el mutex que se utilizará para proteger el acceso a las
+   * secciones críticas del programa, como la escritura de resultados.
+   * El segundo parámetro es NULL, lo que indica que el mutex usará los
+   * atributos predeterminados.
+   */
   pthread_mutex_init(&shared_data.write_mutex, NULL);
+  /**
+   * Inicializa la variable de condición que permitirá coordinar el acceso a
+   * los hilos de acuerdo a su turno.
+   */
   pthread_cond_init(&shared_data.turn_cond, NULL);
   /** Inicializar el turno en 0 para que el primer hilo sea el 0. */
   shared_data.current_turn = 0;
 
+  /**
+   * Se usará para almacenar las referencias a los hilos creados y para esperar
+   * a que esos hilos terminen.
+   */
   pthread_t threads[num_threads];  // NOLINT
   int thread_count = 0;  /** Contador de hilos en ejecución. */
   char plate_filename[MAX_PATH_LENGTH];
   double delta_t, alpha, h, epsilon;
+  /**
+   * Llevar el seguimiento del índice de cada trabajo que se está procesando en
+   * el archivo de trabajos.
+  */
   int job_index = 0;
 
   while (fscanf(file, "%s %lf %lf %lf %lf", plate_filename, &delta_t, &alpha,
@@ -124,25 +171,39 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Error: file path truncated\n");
       return EXIT_FAILURE;
     }
-
+    /** Copiar el nombre del archivo de la placa en plate_filename. */
     strcpy(data->plate_filename, plate_filename);  // NOLINT
     data->delta_t = delta_t;
     data->alpha = alpha;
     data->h = h;
     data->epsilon = epsilon;
+    /** Guardar el nombre del archivo de trabajo en SimulationData. */
     data->job_file = job_file;
+    /** Almacena el directorio de salida en la estructura. */
     data->output_dir = output_dir;
     data->thread_index = job_index;  /** Asignar el índice del hilo. */
     data->shared_data = &shared_data;  /** Pasar el puntero a SharedData. */
 
-    /** Crear los hilos. */
+    /**
+     * Se crean los hilos. Para esto, se pasa la dirección del hilo actual
+     * dentro del array de threads para almacenarlo, y se indica que se
+     * ejecutará la función para procesar la simulación y crear los archivos de
+     * salida.
+     */
     if (pthread_create(&threads[thread_count], NULL, process_simulation,
       (void*) data) != 0) {  // NOLINT
       perror("Error creating thread");
       return EXIT_FAILURE;
     }
-
+    /**
+     * Asegura que el siguiente hilo que se cree se almacene en la siguiente
+     * posición del array.
+     */
     thread_count++;
+    /**
+     * Asegura que el próximo trabajo que se lea del archivo de trabajos se
+     * asigne a un nuevo hilo con un índice diferente.
+     */
     job_index++;
 
     /** Si se ha alcanzado el número máximo de hilos, espera a que terminen. */
