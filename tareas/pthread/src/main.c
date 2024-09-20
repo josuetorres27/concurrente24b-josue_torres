@@ -112,15 +112,18 @@ int main(int argc, char *argv[]) {
 
     /** Verificar si el tamaño calculado es mayor que el tamaño del buffer. */
     if (needed_size > sizeof(data->input_filepath)) {
-      fprintf(stderr, "Error: the combined file path is too long\n",
-        needed_size, sizeof(data->input_filepath));
+      fprintf(stderr, "Error: the combined file path is too long\n");
       free(data);  /** Liberar la memoria asignada para evitar fugas. */
       pthread_exit(NULL);  /** O manejar el error apropiadamente. */
     }
 
     /** Si el tamaño es adecuado, copiar la cadena. */
-    snprintf(data->input_filepath, sizeof(data->input_filepath), "%s/%s",
-      input_dir, plate_filename);
+    size_t ret = snprintf(data->input_filepath, sizeof(data->input_filepath),
+      "%s/%s", input_dir, plate_filename);
+    if (ret >= sizeof(data->input_filepath)) {
+      fprintf(stderr, "Error: file path truncated\n");
+      return EXIT_FAILURE;
+    }
 
     strcpy(data->plate_filename, plate_filename);  // NOLINT
     data->delta_t = delta_t;
