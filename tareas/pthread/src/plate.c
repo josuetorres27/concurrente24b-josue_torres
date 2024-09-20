@@ -1,6 +1,6 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"
+#include "plate.h"  // NOLINT
 
 /**
  * @brief Lee las dimensiones de la matriz desde el archivo binario.
@@ -23,8 +23,8 @@ int read_dimensions(const char* filepath, Plate* plate) {
   }
 
   /** Leer las dimensiones (8 bytes para filas, 8 bytes para columnas). */
-  if (fread(&(plate->rows), sizeof(long long int), 1, file) != 1 ||
-    fread(&(plate->cols), sizeof(long long int), 1, file) != 1) {
+  if (fread(&(plate->rows), sizeof(int64_t), 1, file) != 1 ||
+    fread(&(plate->cols), sizeof(int64_t), 1, file) != 1) {
     perror("Error reading plate dimensions");
     fclose(file);
     return EXIT_FAILURE;
@@ -54,7 +54,7 @@ int read_plate(const char* filepath, Plate* plate) {
   }
 
   /** Saltar los primeros 16 bytes que contienen las dimensiones. */
-  fseek(file, 2 * sizeof(long long int), SEEK_SET);
+  fseek(file, 2 * sizeof(int64_t), SEEK_SET);
 
   /**
    * @brief Asigna memoria para un arreglo de punteros, donde cada uno es una
@@ -63,15 +63,15 @@ int read_plate(const char* filepath, Plate* plate) {
   plate->data = (double**) malloc(plate->rows * sizeof(double*));  // NOLINT
 
   /** Se asigna memoria para cada fila de la matriz. */
-  for (long long int i = 0; i < plate->rows; i++) {
+  for (int64_t i = 0; i < plate->rows; i++) {
     plate->data[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
 
     /**
      * @brief Leer los datos de la placa térmica desde el archivo binario y
      * almacenarlos en la matriz.
      */
-    if (fread(plate->data[i], sizeof(double), plate->cols,
-      file) != plate->cols) {
+    if (fread(plate->data[i], sizeof(double), plate->cols, file) != (size_t)
+      plate->cols) {
       perror("Error reading plate data");
       fclose(file);
       return EXIT_FAILURE;
@@ -79,6 +79,52 @@ int read_plate(const char* filepath, Plate* plate) {
   }
   fclose(file);
   return EXIT_SUCCESS;
+}
+
+void* process_simulation(void* arg) {
+  SimulationData* data = (SimulationData*) arg;  // NOLINT
+  Plate plate;
+
+  if (read_dimensions(data->input_filepath, &plate) != EXIT_SUCCESS) {
+    pthread_exit(NULL);
+  }
+  if (read_plate(data->input_filepath, &plate) != EXIT_SUCCESS) {
+    pthread_exit(NULL);
+  }
+
+  int k;
+  time_t time_seconds;
+  simulate(&plate, data->delta_t, data->alpha, data->h, data->epsilon, &k,
+    &time_seconds);
+
+  /** Esperar hasta que sea el turno del hilo para escribir. */
+  pthread_mutex_lock(&data->shared_data->write_mutex);
+  while (data->shared_data->current_turn != data->thread_index) {
+    pthread_cond_wait(&data->shared_data->turn_cond, &data->shared_data->
+      write_mutex);
+  }
+
+  /** Escribir reporte y matriz cuando sea el turno correcto. */
+  create_report(data->job_file, data->plate_filename, data->delta_t,
+    data->alpha, data->h, data->epsilon, k, time_seconds, data->output_dir);
+
+  char output_filename[256];
+  snprintf(output_filename, sizeof(output_filename), "%s/plate%03d-%d.bin",
+    data->output_dir, atoi(&data->plate_filename[5]), k);
+  write_plate(output_filename, &plate);
+
+  /** Incrementar el turno y despertar a los demás hilos. */
+  data->shared_data->current_turn++;
+  pthread_cond_broadcast(&data->shared_data->turn_cond);
+  pthread_mutex_unlock(&data->shared_data->write_mutex);
+
+  /** Liberar memoria. */
+  for (int64_t i = 0; i < plate.rows; i++) {
+    free(plate.data[i]);
+  }
+  free(plate.data);
+  free(data);  /** Liberar la estructura data. */
+  pthread_exit(NULL);
 }
 
 /**
@@ -104,7 +150,7 @@ void simulate(Plate* plate, double delta_t, double alpha, double h,
   /** Inicialización de estructuras de datos. */
   double max_delta;
   double** next_plate = (double**) malloc(plate->rows * sizeof(double*));  // NOLINT
-  for (long long int i = 0; i < plate->rows; i++) {
+  for (int64_t i = 0; i < plate->rows; i++) {
     next_plate[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
   }
 
@@ -114,8 +160,8 @@ void simulate(Plate* plate, double delta_t, double alpha, double h,
   /** Algoritmo de simulación de calor. */
   do {
     max_delta = 0.0;
-    for (long long int i = 1; i < plate->rows - 1; i++) {
-      for (long long int j = 1; j < plate->cols - 1; j++) {
+    for (int64_t i = 1; i < plate->rows - 1; i++) {
+      for (int64_t j = 1; j < plate->cols - 1; j++) {
         /** Aplica la fórmula para calcular la nueva temperatura. */
         next_plate[i][j] = plate->data[i][j] + (((delta_t * alpha) / (h * h)) *
           (plate->data[i-1][j] + plate->data[i+1][j] + plate->data[i][j-1] +
@@ -128,15 +174,15 @@ void simulate(Plate* plate, double delta_t, double alpha, double h,
       }
     }
     /** Copiar nuevas temperaturas a la matriz principal. */
-    for (long long int i = 1; i < plate->rows - 1; i++) {
-      for (long long int j = 1; j < plate->cols - 1; j++) {
+    for (int64_t i = 1; i < plate->rows - 1; i++) {
+      for (int64_t j = 1; j < plate->cols - 1; j++) {
         plate->data[i][j] = next_plate[i][j];
       }
     }
     (*k)++; /** Incrementar contadores. */
     *time_seconds += delta_t;
   } while (max_delta > epsilon); /** Condición de parada. */
-  for (long long int i = 0; i < plate->rows; i++) { /** Liberar memoria. */
+  for (int64_t i = 0; i < plate->rows; i++) { /** Liberar memoria. */
     free(next_plate[i]);
   }
   free(next_plate);
@@ -161,11 +207,11 @@ int write_plate(const char* filepath, Plate* plate) {
   }
 
   /** Escritura de las dimensiones de la matriz. */
-  fwrite(&(plate->rows), sizeof(long long int), 1, file);
-  fwrite(&(plate->cols), sizeof(long long int), 1, file);
+  fwrite(&(plate->rows), sizeof(int64_t), 1, file);
+  fwrite(&(plate->cols), sizeof(int64_t), 1, file);
 
   /** Escribe cada fila de la matriz de temperaturas en el archivo binario. */
-  for (long long int i = 0; i < plate->rows; i++) {
+  for (int64_t i = 0; i < plate->rows; i++) {
     fwrite(plate->data[i], sizeof(double), plate->cols, file);
   }
   fclose(file);

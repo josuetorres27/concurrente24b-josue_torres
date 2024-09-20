@@ -1,6 +1,22 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"
+#include "plate.h"  // NOLINT
+
+/** Función para contar las líneas en el archivo de trabajo. */
+int count_job_lines(const char* job_file) {
+  FILE* file = fopen(job_file, "r");
+  if (file == NULL) {
+    perror("Error opening the job file");
+    return -1;
+  }
+  int count = 0;
+  char line[1024];
+  while (fgets(line, sizeof(line), file)) {
+    count++;
+  }
+  fclose(file);
+  return count;
+}
 
 /**
  * @brief Formatea el tiempo transcurrido en segundos.
@@ -13,7 +29,7 @@
  * @return Puntero a la cadena de caracteres formateada.
  */
 char* format_time(const time_t seconds, char* text, const size_t capacity) {
-  const struct tm* gmt = gmtime(&seconds);
+  const struct tm* gmt = gmtime(&seconds);  // NOLINT
   snprintf(text, capacity, "%04d/%02d/%02d\t%02d:%02d:%02d",
     gmt->tm_year - 70, gmt->tm_mon, gmt->tm_mday - 1, gmt->tm_hour,
       gmt->tm_min, gmt->tm_sec);
@@ -58,7 +74,7 @@ int create_report(const char* job_file, const char* plate_filename,
   /** Modificar el nombre del archivo para que tenga la extensión .tsv. */
   char* dot_position = strrchr(report_filename, '.');
   if (dot_position != NULL) {
-    strcpy(dot_position, ".tsv");
+    strcpy(dot_position, ".tsv");  // NOLINT
   } else {
     strncat(report_filename, ".tsv", MAX_PATH_LENGTH - strlen(report_filename)
       - 1);
@@ -69,7 +85,7 @@ int create_report(const char* job_file, const char* plate_filename,
   int written = snprintf(full_report_path, sizeof(full_report_path), "%s/%s",
     output_dir, report_filename);
   /** Verificar si la ruta al directorio de salida es demasiado larga. */
-  if (written < 0 || written >= sizeof(full_report_path)) {
+  if (written < 0 || written >= (int)sizeof(full_report_path)) {  // NOLINT
     fprintf(stderr, "Error: the full report path is too long\n");
     return EXIT_FAILURE;
   }

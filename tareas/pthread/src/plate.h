@@ -1,10 +1,12 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#ifndef TAREAS_SERIAL_SRC_PLATE_H_
+#ifndef TAREAS_PTHREAD_SRC_PLATE_H_
 #define PLATE_H
 
+#include <ctype.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +16,7 @@
 #include <unistd.h>
 
 /** Especificar el tamaño máximo permitido para las rutas de archivos. */
-#define MAX_PATH_LENGTH 512
+#define MAX_PATH_LENGTH 1024
 
 /**
  * @struct Plate
@@ -24,8 +26,8 @@
  * térmica utilizada en la simulación.
  */
 typedef struct {
-  long long int rows; /** Número de filas. */
-  long long int cols; /** Número de columnas. */
+  int64_t rows; /** Número de filas. */
+  int64_t cols; /** Número de columnas. */
   double** data; /** Puntero a la matriz de datos. */
 } Plate;
 
@@ -40,22 +42,25 @@ typedef struct SimulationData {
   char plate_filename[MAX_PATH_LENGTH];
   const char* job_file;
   double delta_t, alpha, h, epsilon;
-  int thread_index; /** Índice del hilo para garantizar el orden de escritura. */
+  /** Índice del hilo para garantizar el orden de escritura. */
+  int thread_index;
   const char* output_dir;
-  SharedData* shared_data; /** Puntero a la estructura compartida. */
+  SharedData* shared_data;  /** Puntero a la estructura compartida. */
 } SimulationData;
 
 /** Declaración de funciones relacionadas con Plate. */
 int read_dimensions(const char* filepath, Plate* plate);
 int read_plate(const char* filepath, Plate* plate);
-void simulate(Plate* plate, double delta_t, double alpha, double h, 
+void* process_simulation(void* arg);
+void simulate(Plate* plate, double delta_t, double alpha, double h,
   double epsilon, int* k, time_t* time_seconds);
 int write_plate(const char* filepath, Plate* plate);
 
 /** Declaración de funciones auxiliares en utils.c. */
+int count_job_lines(const char* job_file);
 char* format_time(const time_t seconds, char* text, const size_t capacity);
-int create_report(const char* job_file, const char* plate_filename, 
-  double delta_t, double alpha, double h, double epsilon, int k, 
+int create_report(const char* job_file, const char* plate_filename,
+  double delta_t, double alpha, double h, double epsilon, int k,
     time_t time_seconds, const char* output_dir);
 
-#endif  // TAREAS_SERIAL_SRC_PLATE_H_
+#endif  // TAREAS_PTHREAD_SRC_PLATE_H_
