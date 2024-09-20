@@ -81,10 +81,31 @@ int read_plate(const char* filepath, Plate* plate) {
   return EXIT_SUCCESS;
 }
 
+/**
+ * @brief Función que ejecuta la simulación térmica para cada trabajo en
+ * paralelo.
+ * 
+ * @details Esta función es invocada por cada hilo para realizar las siguientes
+ * tareas:
+ * 1. Leer las dimensiones y los datos de la placa térmica desde el archivo de
+ * entrada.
+ * 2. Ejecutar la simulación de propagación de calor sobre la placa utilizando
+ * los parámetros proporcionados.
+ * 3. Sincronizar el acceso a la escritura de los resultados para garantizar
+ * que los hilos escriban en el orden correcto.
+ * 4. Escribir un informe con las estadísticas de la simulación y guardar la
+ * matriz resultante en un archivo binario.
+ * 5. Liberar los recursos utilizados.
+ * 
+ * @param arg Puntero a los datos específicos para cada hilo, los cuales son
+ * convertidos a un puntero a 'SimulationData'.
+ * @return Esta función no retorna un valor, ya que finaliza el hilo con
+ * 'pthread_exit'.
+ */
 void* process_simulation(void* arg) {
   SimulationData* data = (SimulationData*) arg;  // NOLINT
   Plate plate;
-
+  /** Leer las dimensiones y los datos de la placa térmica desde el archivo. */
   if (read_dimensions(data->input_filepath, &plate) != EXIT_SUCCESS) {
     pthread_exit(NULL);
   }
@@ -94,6 +115,7 @@ void* process_simulation(void* arg) {
 
   int k;
   time_t time_seconds;
+  /** Ejecutar la simulación de propagación de calor. */
   simulate(&plate, data->delta_t, data->alpha, data->h, data->epsilon, &k,
     &time_seconds);
 
@@ -107,7 +129,6 @@ void* process_simulation(void* arg) {
   /** Escribir reporte y matriz cuando sea el turno correcto. */
   create_report(data->job_file, data->plate_filename, data->delta_t,
     data->alpha, data->h, data->epsilon, k, time_seconds, data->output_dir);
-
   char output_filename[256];
   snprintf(output_filename, sizeof(output_filename), "%s/plate%03d-%d.bin",
     data->output_dir, atoi(&data->plate_filename[5]), k);

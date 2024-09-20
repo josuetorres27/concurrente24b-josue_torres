@@ -31,19 +31,44 @@ typedef struct {
   double** data; /** Puntero a la matriz de datos. */
 } Plate;
 
+/**
+ * @struct SharedData
+ * 
+ * @brief Estructura que almacena datos compartidos entre los hilos.
+ * 
+ * @details Se utiliza para sincronizar el acceso a recursos compartidos.
+ */
 typedef struct SharedData {
+  /**
+   * Mutex para controlar el acceso a la escritura y evitar condiciones de
+   * carrera.
+   */
   pthread_mutex_t write_mutex;
   int current_turn; /** Controla cuál hilo debe escribir. */
   pthread_cond_t turn_cond; /** Condición para sincronizar la escritura. */
 } SharedData;
 
+/**
+ * @struct SimulationData
+ * 
+ * @brief Estructura que contiene los datos necesarios para cada hilo de
+ * simulación.
+ * 
+ * @details La información es específica de cada trabajo que se ejecuta en
+ * paralelo.
+ */
 typedef struct SimulationData {
+  /** Ruta del archivo de entrada que contiene los datos de la placa. */
   char input_filepath[MAX_PATH_LENGTH];
+  /** Nombre del archivo que contiene la placa térmica. */
   char plate_filename[MAX_PATH_LENGTH];
+  /** Archivo que contiene la descripción de los trabajos a procesar. */
   const char* job_file;
+  /** Parámetros de simulación. */
   double delta_t, alpha, h, epsilon;
   /** Índice del hilo para garantizar el orden de escritura. */
   int thread_index;
+  /** Directorio de salida donde se escribirán los archivos generados. */
   const char* output_dir;
   SharedData* shared_data;  /** Puntero a la estructura compartida. */
 } SimulationData;
