@@ -2,239 +2,174 @@
 
 #include "plate.h"  // NOLINT
 
-/**
- * @brief Lee las dimensiones de la matriz desde el archivo binario.
- * 
- * @details Esta función abre el archivo binario especificado por filepath,
- * lee las dimensiones de la placa térmica desde los primeros 16 bytes del
- * archivo y las almacena en la estructura Plate.
- * @param filepath Ruta del archivo binario que contiene las dimensiones de la
- * matriz.
- * @param plate Puntero a la estructura Plate donde se almacenarán las
- * dimensiones leídas.
- * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre
- * un error.
- */
-int read_dimensions(const char* filepath, Plate* plate) {
-  FILE* file = fopen(filepath, "rb");
-  if (file == NULL) {
-    perror("Error opening the plate file");
-    return EXIT_FAILURE;
+SimulationData* read_job_file(const char* job_file, const char* dir,
+  uint64_t* job_lines) {
+  FILE *file;
+  SimulationData* sim_params;
+  char filepath[MAX_PATH_LENGTH];
+
+  // Construye la ruta completa del archivo usando el directorio y el nombre
+  snprintf(filepath, sizeof(filepath), "%s/%s", dir, job_file);
+
+  // Cuenta el número de líneas en el archivo de trabajos
+  *job_lines = count_job_lines(filepath);
+
+  // Asigna memoria para un arreglo de estructuras SimulationData
+  sim_params = malloc(*job_lines * sizeof(SimulationData));
+  if (sim_params == NULL) {
+    fprintf(stderr, "Error allocating memory for simulation parameters\n");
+    return NULL;  // Devuelve NULL en caso de fallo
   }
 
-  /** Leer las dimensiones (8 bytes para filas, 8 bytes para columnas). */
-  if (fread(&(plate->rows), sizeof(int64_t), 1, file) != 1 ||
-    fread(&(plate->cols), sizeof(int64_t), 1, file) != 1) {
-    perror("Error reading plate dimensions");
-    fclose(file);
-    return EXIT_FAILURE;
+  // Abre el archivo de trabajos para leer los datos
+  file = fopen(filepath, "r");
+  if (file == NULL) {
+    perror("Error opening the job file\n");
+    free(sim_params);  // Libera la memoria si no se puede abrir el archivo
+    return NULL;  // Devuelve NULL si no se puede abrir el archivo
   }
+
+  int i = 0;
+  char plate_name[MAX_PATH_LENGTH];
+
+  // Extrae el nombre del archivo y los parámetros de cada línea
+  while (fscanf(file, "%s %lf %lf %lf %lf", plate_name,
+    &sim_params[i].delta_t, &sim_params[i].alpha,
+      &sim_params[i].h, &sim_params[i].epsilon) == 5) {
+    // Asigna memoria para almacenar el nombre del archivo leído
+    sim_params[i].filename = malloc(strlen(plate_name) + 1);
+    if (sim_params[i].filename == NULL) {
+      fprintf(stderr,
+        "Error allocating memory for file name at line %d\n", i);
+      // Libera toda la memoria asignada hasta ahora
+      for (int j = 0; j < i; j++) {
+        free(sim_params[j].filename);
+      }
+      free(sim_params);
+      fclose(file);
+      return NULL;  // Devuelve NULL en caso de error
+    }
+    // Copia el nombre del archivo en la estructura de datos
+    snprintf(sim_params[i].filename, strlen(plate_name) + 1, "%s", plate_name);
+    i++;
+  }
+  // Cierra el archivo de trabajos
   fclose(file);
-  return EXIT_SUCCESS;
+  // Devuelve el arreglo de estructuras con los parámetros de simulación
+  return sim_params;
 }
 
-/**
- * @brief Lee los datos de una placa térmica desde un archivo binario.
- * 
- * @details Esta función abre un archivo binario que contiene los datos de una
- * placa térmica y lee los datos de la matriz en la estructura Plate
- * proporcionada.
- * 
- * @param[in] filepath Ruta al archivo binario que contiene los datos.
- * @param[in] plate Puntero a la estructura Plate donde se almacenarán los
- * datos leídos.
- * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre
- * un error.
- */
-int read_plate(const char* filepath, Plate* plate) {
-  FILE* file = fopen(filepath, "rb");
-  if (file == NULL) {
-    perror("Error opening the plate file");
+void thread_simulation(SimulationData* sim_params, const char* job_file,
+  const char* dir, uint64_t job_lines, uint64_t num_threads) {
+  FILE* file;
+  char filepath[MAX_PATH_LENGTH];
+  SharedData* shared_data = malloc(sizeof(SharedData));
+  if (shared_data == NULL) {
+    fprintf(stderr, "Error allocating memory for shared data\n");
     return EXIT_FAILURE;
   }
 
-  /** Saltar los primeros 16 bytes que contienen las dimensiones. */
-  fseek(file, 2 * sizeof(int64_t), SEEK_SET);
+  // Arreglo para almacenar los estados finales de cada simulación
+  uint64_t* sim_states = malloc(job_lines * sizeof(uint64_t));
+  if (sim_states == NULL) {
+    fprintf(stderr, "Error allocating memory for simulation states\n");
+    free(shared_data);  // Libera la memoria de shared_data antes de retornar
+    return EXIT_FAILURE;
+  }
 
-  /**
-   * @brief Asigna memoria para un arreglo de punteros, donde cada uno es una
-   * fila de la placa térmica.
-   */
-  plate->data = (double**) malloc(plate->rows * sizeof(double*));  // NOLINT
+  for (uint64_t job_index = 0; job_index < job_lines; job_index++) {
+    // Construye la ruta completa al archivo binario de entrada
+    snprintf(filepath, sizeof(filepath), "%s/%s", dir,
+      sim_params[job_index].filename);
 
-  /** Se asigna memoria para cada fila de la matriz. */
-  for (int64_t i = 0; i < plate->rows; i++) {
-    plate->data[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
-
-    /**
-     * @brief Leer los datos de la placa térmica desde el archivo binario y
-     * almacenarlos en la matriz.
-     */
-    if (fread(plate->data[i], sizeof(double), plate->cols, file) != (size_t)
-      plate->cols) {
-      perror("Error reading plate data");
-      fclose(file);
+    // Abre el archivo binario
+    file = fopen(filepath, "rb");
+    if (file == NULL) {
+      fprintf(stderr, "Error opening binary file %s\n",
+        sim_params[job_index].filename);
+      free(sim_states);
+      free(shared_data);
       return EXIT_FAILURE;
     }
-  }
-  fclose(file);
-  return EXIT_SUCCESS;
-}
 
-/**
- * @brief Función que ejecuta la simulación térmica para cada trabajo en
- * paralelo.
- * 
- * @details Esta función es invocada por cada hilo para realizar las siguientes
- * tareas:
- * 1. Leer las dimensiones y los datos de la placa térmica desde el archivo de
- * entrada.
- * 2. Ejecutar la simulación de propagación de calor sobre la placa utilizando
- * los parámetros proporcionados.
- * 3. Sincronizar el acceso a la escritura de los resultados para garantizar
- * que los hilos escriban en el orden correcto.
- * 4. Escribir un informe con las estadísticas de la simulación y guardar la
- * matriz resultante en un archivo binario.
- * 5. Liberar los recursos utilizados.
- * 
- * @param arg Puntero a los datos específicos para cada hilo, los cuales son
- * convertidos a un puntero a 'SimulationData'.
- * @return Esta función no retorna un valor, ya que finaliza el hilo con
- * 'pthread_exit'.
- */
-void* process_simulation(void* arg) {
-  SimulationData* data = (SimulationData*) arg;  // NOLINT
-  Plate plate;
-  /** Leer las dimensiones y los datos de la placa térmica desde el archivo. */
-  if (read_dimensions(data->input_filepath, &plate) != EXIT_SUCCESS) {
-    pthread_exit(NULL);
-  }
-  if (read_plate(data->input_filepath, &plate) != EXIT_SUCCESS) {
-    pthread_exit(NULL);
-  }
+    // Lee el número de filas y columnas de la lámina
+    fread(&(shared_data->rows), sizeof(uint64_t), 1, file);
+    fread(&(shared_data->cols), sizeof(uint64_t), 1, file);
 
-  int k;
-  time_t time_seconds;
-  /** Ejecutar la simulación de propagación de calor. */
-  simulate(&plate, data->delta_t, data->alpha, data->h, data->epsilon, &k,
-    &time_seconds);
+    // Asigna memoria para la matriz de la lámina
+    shared_data->data = malloc(shared_data->rows * sizeof(double*));
+    if (shared_data->data == NULL) {
+      fprintf(stderr, "Error allocating memory for plate rows\n");
+      fclose(file);
+      free(sim_states);
+      free(shared_data);
+      return EXIT_FAILURE;
+    }
 
-  /** Esperar hasta que sea el turno del hilo para escribir. */
-  pthread_mutex_lock(&data->shared_data->write_mutex);
-  while (data->shared_data->current_turn != data->thread_index) {
-    pthread_cond_wait(&data->shared_data->turn_cond, &data->shared_data->
-      write_mutex);
-  }
-
-  /** Escribir reporte y matriz cuando sea el turno correcto. */
-  create_report(data->job_file, data->plate_filename, data->delta_t,
-    data->alpha, data->h, data->epsilon, k, time_seconds, data->output_dir);
-  char output_filename[256];
-  snprintf(output_filename, sizeof(output_filename), "%s/plate%03d-%d.bin",
-    data->output_dir, atoi(&data->plate_filename[5]), k);
-  write_plate(output_filename, &plate);
-
-  /** Incrementar el turno y despertar a los demás hilos. */
-  data->shared_data->current_turn++;
-  pthread_cond_broadcast(&data->shared_data->turn_cond);
-  pthread_mutex_unlock(&data->shared_data->write_mutex);
-
-  /** Liberar memoria. */
-  for (int64_t i = 0; i < plate.rows; i++) {
-    free(plate.data[i]);
-  }
-  free(plate.data);
-  free(data);  /** Liberar la estructura data. */
-  pthread_exit(NULL);
-}
-
-/**
- * @brief Simula la difusión térmica en una placa hasta alcanzar un estado de
- * equilibrio.
- * 
- * @details Esta función realiza la simulación de la difusión térmica en la
- * placa representada por la estructura Plate. La simulación se ejecuta
- * iterativamente hasta que la diferencia máxima entre los valores de
- * temperatura de la placa sea menor que un valor epsilon, lo que indica que
- * se ha alcanzado el equilibrio térmico.
- * 
- * @param plate Puntero a la estructura que contiene la matriz de datos.
- * @param delta_t Tiempo permitido entre un estado y otro.
- * @param alpha Coeficiente de difusión térmica.
- * @param h Alto y ancho de cada celda.
- * @param epsilon Mínimo cambio de temperatura significativo.
- * @param k Puntero donde se almacenará la cantidad de estados.
- * @param time_seconds Puntero donde se almacenará el tiempo total en segundos.
- */
-void simulate(Plate* plate, double delta_t, double alpha, double h,
-  double epsilon, int* k, time_t* time_seconds) {
-  /** Inicialización de estructuras de datos. */
-  double max_delta;
-  double** next_plate = (double**) malloc(plate->rows * sizeof(double*));  // NOLINT
-  for (int64_t i = 0; i < plate->rows; i++) {
-    next_plate[i] = (double*) malloc(plate->cols * sizeof(double));  // NOLINT
-  }
-
-  *k = 0; /** Declaración de contadores. */
-  *time_seconds = 0;
-
-  /** Algoritmo de simulación de calor. */
-  do {
-    max_delta = 0.0;
-    for (int64_t i = 1; i < plate->rows - 1; i++) {
-      for (int64_t j = 1; j < plate->cols - 1; j++) {
-        /** Aplica la fórmula para calcular la nueva temperatura. */
-        next_plate[i][j] = plate->data[i][j] + (((delta_t * alpha) / (h * h)) *
-          (plate->data[i-1][j] + plate->data[i+1][j] + plate->data[i][j-1] +
-            plate->data[i][j+1] - (4 * plate->data[i][j])));
-
-        double delta = fabs(next_plate[i][j] - plate->data[i][j]);
-        if (delta > max_delta) {
-          max_delta = delta;
+    // Asigna memoria para cada fila de la matriz
+    for (uint64_t row = 0; row < shared_data->rows; row++) {
+      shared_data->data[row] = malloc(shared_data->cols * sizeof(double));
+      if (shared_data->data[row] == NULL) {
+        fprintf(stderr, "Error allocating memory for plate columns\n");
+        // Liberación de memoria en caso de error
+        for (uint64_t r = 0; r < row; r++) {
+          free(shared_data->data[r]);
         }
+        free(shared_data->data);
+        fclose(file);
+        free(sim_states);
+        free(shared_data);
+        return EXIT_FAILURE;
       }
     }
-    /** Copiar nuevas temperaturas a la matriz principal. */
-    for (int64_t i = 1; i < plate->rows - 1; i++) {
-      for (int64_t j = 1; j < plate->cols - 1; j++) {
-        plate->data[i][j] = next_plate[i][j];
+
+    // Lee los valores de la lámina del archivo binario
+    for (uint64_t row = 0; row < shared_data->rows; row++) {
+      if (fread(shared_data->data[row], sizeof(double), shared_data->cols,
+        file) != shared_data->cols) {
+        fprintf(stderr, "Error reading plate data of file %s\n",
+          sim_params[job_index].filename);
+        // Liberación de memoria en caso de error
+        for (uint64_t r = 0; r < shared_data->rows; r++) {
+          free(shared_data->data[r]);
+        }
+        free(shared_data->data);
+        fclose(file);
+        free(sim_states);
+        free(shared_data);
+        return EXIT_FAILURE;
       }
     }
-    (*k)++; /** Incrementar contadores. */
-    *time_seconds += delta_t;
-  } while (max_delta > epsilon); /** Condición de parada. */
-  for (int64_t i = 0; i < plate->rows; i++) { /** Liberar memoria. */
-    free(next_plate[i]);
-  }
-  free(next_plate);
-}
 
-/**
- * @brief Escribe la matriz de temperaturas en un archivo binario.
- * 
- * @details Esta función guarda la matriz de temperaturas de la placa en un
- * archivo binario especificado por filepath. Los datos se escriben en orden
- * fila por fila.
- * @param filepath Nombre del archivo a crear.
- * @param plate Puntero a la estructura Plate que contiene la matriz de datos.
- * @return EXIT_SUCCESS si la operación es exitosa, o EXIT_FAILURE si ocurre
- * un error.
- */
-int write_plate(const char* filepath, Plate* plate) {
-  FILE* file = fopen(filepath, "wb");
-  if (file == NULL) {
-    perror("Error opening the output file");
-    return EXIT_FAILURE;
+    // Configura los parámetros de simulación en SharedData
+    shared_data->delta_t = sim_params[job_index].delta_t;
+    shared_data->alpha = sim_params[job_index].alpha;
+    shared_data->h = sim_params[job_index].h;
+    shared_data->epsilon = sim_params[job_index].epsilon;
+
+    // Llama a la función de simulación
+    uint64_t num_states = simulate(shared_data, num_threads);
+
+    // Guarda el número de estados finales de la simulación
+    sim_states[job_index] = num_states;
+
+    // Genera el archivo binario con los resultados de la simulación
+    write_plate(shared_data->data, shared_data->rows, shared_data->cols, dir,
+      sim_params[job_index].filename, num_states);
+
+    // Libera la memoria de la lámina
+    for (uint64_t row = 0; row < shared_data->rows; row++) {
+      free(shared_data->data[row]);
+    }
+    free(shared_data->data);
+    // Cierra el archivo binario
+    fclose(file);
   }
 
-  /** Escritura de las dimensiones de la matriz. */
-  fwrite(&(plate->rows), sizeof(int64_t), 1, file);
-  fwrite(&(plate->cols), sizeof(int64_t), 1, file);
+  // Genera el reporte en formato .tsv
+  create_report(dir, job_file, sim_params, sim_states, job_lines);
 
-  /** Escribe cada fila de la matriz de temperaturas en el archivo binario. */
-  for (int64_t i = 0; i < plate->rows; i++) {
-    fwrite(plate->data[i], sizeof(double), plate->cols, file);
-  }
-  fclose(file);
-  return EXIT_SUCCESS;
+  // Libera memoria
+  free(sim_states);
+  free(shared_data);
 }
