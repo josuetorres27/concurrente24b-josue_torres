@@ -1,65 +1,8 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"  // NOLINT
+#include "heat_sim.h"  // NOLINT
 
-SimulationData* read_job_file(const char* job_file, const char* dir,
-  uint64_t* job_lines) {
-  FILE *file;
-  SimulationData* sim_params;
-  char filepath[MAX_PATH_LENGTH];
-
-  // Construye la ruta completa del archivo usando el directorio y el nombre
-  snprintf(filepath, sizeof(filepath), "%s/%s", dir, job_file);
-
-  // Cuenta el número de líneas en el archivo de trabajos
-  *job_lines = count_job_lines(filepath);
-
-  // Asigna memoria para un arreglo de estructuras SimulationData
-  sim_params = malloc(*job_lines * sizeof(SimulationData));
-  if (sim_params == NULL) {
-    fprintf(stderr, "Error allocating memory for simulation parameters\n");
-    return NULL;  // Devuelve NULL en caso de fallo
-  }
-
-  // Abre el archivo de trabajos para leer los datos
-  file = fopen(filepath, "r");
-  if (file == NULL) {
-    perror("Error opening the job file\n");
-    free(sim_params);  // Libera la memoria si no se puede abrir el archivo
-    return NULL;  // Devuelve NULL si no se puede abrir el archivo
-  }
-
-  int i = 0;
-  char plate_name[MAX_PATH_LENGTH];
-
-  // Extrae el nombre del archivo y los parámetros de cada línea
-  while (fscanf(file, "%s %lf %lf %lf %lf", plate_name,
-    &sim_params[i].delta_t, &sim_params[i].alpha,
-      &sim_params[i].h, &sim_params[i].epsilon) == 5) {
-    // Asigna memoria para almacenar el nombre del archivo leído
-    sim_params[i].filename = malloc(strlen(plate_name) + 1);
-    if (sim_params[i].filename == NULL) {
-      fprintf(stderr,
-        "Error allocating memory for file name at line %d\n", i);
-      // Libera toda la memoria asignada hasta ahora
-      for (int j = 0; j < i; j++) {
-        free(sim_params[j].filename);
-      }
-      free(sim_params);
-      fclose(file);
-      return NULL;  // Devuelve NULL en caso de error
-    }
-    // Copia el nombre del archivo en la estructura de datos
-    snprintf(sim_params[i].filename, strlen(plate_name) + 1, "%s", plate_name);
-    i++;
-  }
-  // Cierra el archivo de trabajos
-  fclose(file);
-  // Devuelve el arreglo de estructuras con los parámetros de simulación
-  return sim_params;
-}
-
-void thread_simulation(SimulationData* sim_params, const char* job_file,
+void configure_simulation(SimulationData* sim_params, const char* job_file,
   const char* dir, uint64_t job_lines, uint64_t num_threads) {
   FILE* file;
   char filepath[MAX_PATH_LENGTH];
@@ -172,4 +115,80 @@ void thread_simulation(SimulationData* sim_params, const char* job_file,
   // Libera memoria
   free(sim_states);
   free(shared_data);
+}
+
+uint64_t simulate(SharedData* shared_data, uint64_t num_threads) {
+  pthread_t threads[num_threads];
+  ThreadData thread_data[num_threads];
+
+  // Inicialización de variables
+  uint64_t num_states = 0;  // Número de estados simulados
+  bool eq_point = false;  // Punto de equilibrio alcanzado
+
+  // Ciclo principal de simulación hasta alcanzar el equilibrio
+  while (!eq_point) {
+    num_states++;  // Incrementa el contador de estados
+    eq_point = true;  // Asumimos que el equilibrio se alcanza en este paso
+    // Crear una copia de la matriz actual antes de actualizar
+    double** internal_data = malloc(shared_data->rows * sizeof(double*));
+    for (uint64_t i = 0; i < shared_data->rows; i++) {
+      internal_data[i] = malloc(shared_data->cols * sizeof(double));
+      for (uint64_t j = 0; j < shared_data->cols; j++) {
+        internal_data[i][j] = shared_data->data[i][j];
+      }
+    }
+
+    // Dividir el trabajo entre los hilos
+    uint64_t rows_per_thread = (shared_data->rows - 2) / num_threads;
+    for (uint64_t i = 0; i < num_threads; i++) {
+      thread_data[i].start_row = 1 + i * rows_per_thread;
+      thread_data[i].end_row = (i == num_threads - 1) ? shared_data->rows - 1 :
+        thread_data[i].start_row + rows_per_thread;
+      thread_data[i].shared_data = shared_data;
+
+      // Crear los hilos
+      pthread_create(&threads[i], NULL, thread_heat_sim, &thread_data[i]);
+    }
+    // Esperar a que todos los hilos terminen
+    for (uint64_t i = 0; i < num_threads; i++) {
+      pthread_join(threads[i], NULL);
+    }
+    // Verificar si se ha alcanzado el equilibrio
+    for (uint64_t i = 1; i < shared_data->rows - 1; i++) {
+      for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
+        double temp = internal_data[i][j];  // Valor anterior
+        double next_temp = shared_data->data[i][j];  // Valor actualizado
+        if (fabs(next_temp - temp) >= shared_data->epsilon) {
+          eq_point = false;
+          break;
+        }
+      }
+      if (!eq_point) break;
+    }
+    // Liberar la memoria de internal_data
+    for (uint64_t i = 0; i < shared_data->rows; i++) {
+      free(internal_data[i]);
+    }
+    free(internal_data);
+  }
+  // Retornar el número de estados
+  return num_states;
+}
+
+void* thread_heat_sim(void* data) {
+  ThreadData* thread_data = (ThreadData*) data;
+  SharedData* shared_data = thread_data->shared_data;
+
+  // Procesar solo la parte de la data asignada a este hilo
+  for (uint64_t i = thread_data->start_row; i < thread_data->end_row; i++) {
+    for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
+      double temp = shared_data->data[i][j];
+      double next_temp = temp + ((shared_data->delta_t * shared_data->alpha) /
+        (shared_data->h * shared_data->h)) * (shared_data->data[i-1][j] +
+          shared_data->data[i+1][j] + shared_data->data[i][j-1] +
+            shared_data->data[i][j+1] - 4 * temp);
+      shared_data->data[i][j] = next_temp;  // Actualizar la data compartida
+    }
+  }
+  return NULL;  // Fin del thread
 }

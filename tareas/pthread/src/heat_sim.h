@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,16 +37,17 @@ typedef struct SimulationData {
   double delta_t, alpha, h, epsilon;
 } SimulationData;
 
-/** Declaración de funciones relacionadas con Plate. */
-SimulationData* read_job_file(const char* job_file, const char* dir,
-  uint64_t* job_lines);
-void thread_simulation(SimulationData* sim_params, const char* job_file,
+/** Declaración de funciones relacionadas con la simulación. */
+void configure_simulation(SimulationData* sim_params, const char* job_file,
   const char* dir, uint64_t job_lines, uint64_t num_threads);
-//uint64_t simulate();
+uint64_t simulate(SharedData* shared_data, uint64_t num_threads);
+void* thread_heat_sim(void* data);
 //void write_plate();
 //void create_report();
 
 /** Declaración de funciones auxiliares en utils.c. */
+SimulationData* read_job_file(const char* job_file, const char* dir,
+  uint64_t* job_lines);
 uint64_t count_job_lines(const char* job_file);
 char* format_time(const time_t seconds, char* text, const size_t capacity);
 

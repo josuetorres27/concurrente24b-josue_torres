@@ -1,6 +1,6 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"  // NOLINT
+#include "heat_sim.h"  // NOLINT
 
 /**
  * @file main.c
