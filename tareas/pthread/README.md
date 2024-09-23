@@ -10,37 +10,13 @@ El objetivo de la simulación es encontrar el momento en el que la lámina alcan
 
 ## Manual de uso
 Pasos para compilar el programa:
-1. Se puede compilar el programa utilizando el compilador gcc, por lo que se debe comprobar si este ya está instalado.
-Para esto se debe ejecutar el siguiente comando en una terminal de Linux:
+1. Se puede compilar el programa utilizando el Makefile general. Se debe acceder al directorio raíz de la tarea (tareas/pthread) y ejecutar los siguientes comandos:
 
-   gcc --version
+   make clean
+   make
+   bin/pthread [thread_count] <job_file.txt> <input_dir/>
 
-Si no está instalado, se puede instalar con los siguientes comandos:
-
-   sudo apt update
-   sudo apt install gcc
-
-
-2. Se debe acceder al directorio donde se encuentran los archivos necesarios para ejecutar el programa (concurrente24b-josue_torres/tareas/serial, si el repositorio está clonado localmente). Estos son: los archivos de código fuente (.c y .h), que se encuentran dentro de la carpeta 'src', y los archivos de trabajo que se utilizarán como parámetros, que se encuentran en la carpeta 'test'.
-Para esto se debe usar el comando 'cd', de esta forma:
-
-   cd /ruta/al/directorio
-
-La parte de '/ruta/al/directorio' se debe reemplazar con la dirección del directorio.
-
-
-3. Se debe compilar el programa con el siguiente comando:
-
-   gcc src/main.c src/utils.c src/plate.c src/plate.h -o heat_sim
-
-Con esto se generará el archivo ejecutable del programa. En este caso se sugiere el nombre 'heat_sim', pero este puede ser cambiado al nombre que se desee.
-
-
-4. Se debe ejecutar el programa con el siguiente comando:
-
-   ./heat_sim test/job_file.txt 1 test/
-
-Este comando ejecuta el programa, el cual recibe tres parámetros: 'job_file', el archivo que contiene las instrucciones para la simulación (se debe cambiar el nombre del archivo por el que se desee utilizar); 'thread_count', que indica el número de hilos (en esta implementación no se toma en cuenta ya que el programa es serial), y 'test', el cual es el directorio donde están los casos de prueba. Adicionalmente se debe cambiar el nombre 'heat_sim' por el que se haya escrito en el paso 3.
+De esta forma, el programa se debería ejecutar de forma correcta utilizando los parámetros personalizados. Es posible que al correr simulaciones muy grandes el programa tarde algunos minutos en terminar, por lo que se recomienda utilizar bastantes hilos. Los archivos de salida se generarán en el directorio especificado en <input_dir>.
 
 
 ## Créditos
