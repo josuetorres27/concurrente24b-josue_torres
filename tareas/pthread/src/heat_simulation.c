@@ -134,8 +134,8 @@ void configure_simulation(const char* dir, SimData* sim_params, uint64_t lines,
  */
 uint64_t simulate(SharedData* shared_data, uint64_t thread_count) {
   /** Se reserva memoria para manejar los hilos y los datos privados. */
-  pthread_t threads[thread_count];
-  ThreadData thread_data[thread_count];
+  pthread_t threads[thread_count];  // NOLINT
+  ThreadData thread_data[thread_count];  // NOLINT
 
   uint64_t num_states = 0;
   bool eq_point = false;

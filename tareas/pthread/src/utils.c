@@ -13,7 +13,7 @@
  * @return Puntero a la cadena de caracteres formateada.
  */
 char* format_time(const time_t seconds, char* text, const size_t capacity) {
-  const struct tm* gmt = gmtime(&seconds);
+  const struct tm* gmt = gmtime(&seconds);  // NOLINT
   snprintf(text, capacity, "%04d/%02d/%02d\t%02d:%02d:%02d", gmt->tm_year +
     1900, gmt->tm_mon + 1, gmt->tm_mday, gmt->tm_hour, gmt->tm_min,
       gmt->tm_sec);
@@ -170,7 +170,8 @@ void write_plate(double** data, uint64_t rows, uint64_t cols, const char* dir,
   /** Copiar el nombre del archivo. */
   strncpy(base_name, job_name, sizeof(base_name) - 1);
   base_name[sizeof(base_name) - 1] = '\0';
-  char* pos = strstr(base_name, ".bin");* pos = '\0';
+  char* pos = strstr(base_name, ".bin");
+  *pos = '\0';
   snprintf(file_name, sizeof(file_name), "%s/%s-%lu.bin", dir, base_name,
     num_states);
   FILE* output_file = fopen(file_name, "wb");
