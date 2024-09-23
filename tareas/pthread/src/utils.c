@@ -162,7 +162,6 @@ void create_report(const char* dir, const char* job_name, SimData* sim_params,
  * @param job_name Nombre del trabajo.
  * @param num_states Número de estados transcurridos en la simulación.
  */
-
 void write_plate(double** data, uint64_t rows, uint64_t cols, const char* dir,
   const char* job_name, uint64_t num_states) {
   char file_name[MAX_PATH_LENGTH];
