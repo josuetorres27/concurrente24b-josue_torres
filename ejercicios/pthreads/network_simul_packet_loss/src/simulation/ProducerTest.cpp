@@ -6,50 +6,38 @@
 #include "Log.hpp"
 #include "Util.hpp"
 
-ProducerTest::ProducerTest(const size_t rank, const size_t& producerCount,
-    const size_t& packageCount, const int& productorDelay,
-    const size_t& consumerCount, size_t& producedPackets,
-    std::mutex& canAccessProducedPackets)
-  : rank(rank)
-  , producerCount(producerCount)
-  , packageCount(packageCount)
+/**
+ * Constructor initializes the producer with the number of packages to produce,
+ * the delay between productions, and the number of consumers in the system.
+ */
+ProducerTest::ProducerTest(size_t packageCount, int productorDelay,
+  size_t consumerCount)
+  : packageCount(packageCount)
   , productorDelay(productorDelay)
-  , consumerCount(consumerCount)
-  , producedPackets(producedPackets)
-  , canAccessProducedPackets(canAccessProducedPackets) {
+  , consumerCount(consumerCount) {
 }
 
 int ProducerTest::run() {
   // Produce each asked message
-  size_t myPacketNumber = 0;
-  while (true) {
-    this->canAccessProducedPackets.lock();
-      myPacketNumber = ++this->producedPackets;
-    this->canAccessProducedPackets.unlock();
-    if (myPacketNumber > this->packageCount) {
-      break;
-    }
-    this->produce(this->createMessage(myPacketNumber));
-    ++this->myProducedCount;
+  for (size_t index = 0; index < this->packageCount; ++index) {
+    /// Create a network message and send it to the queue
+    this->produce(this->createMessage(index));
   }
-
   // Produce an empty message to communicate we finished
-  if (myPacketNumber == this->packageCount + this->producerCount) {
-    this->produce(NetworkMessage());
-  }
+  this->produce(NetworkMessage());
 
   // Report production is done
-  Log::append(Log::INFO, "Producer", std::to_string(this->myProducedCount)
-    + " messages sent");
+  Log::append(Log::INFO, "Producer", std::to_string(this->packageCount)
+    + " menssages sent");
   return EXIT_SUCCESS;
 }
 
 NetworkMessage ProducerTest::createMessage(size_t index) const {
-  // Source is me, this producer
-  const uint16_t source = this->rank + 1;
+  /// The message's source is always this producer (ID 1)
+  const uint16_t source = 1;
   // Target is selected by random
-  const uint16_t target = 1 + Util::random(0
-    , static_cast<int>(this->consumerCount));
+  const uint16_t target = 1 + Util::random(0,
+    static_cast<int>(this->consumerCount));
   // IMPORTANT: This simulation uses sleep() to mimics the process of
   // producing a message. However, you must NEVER use sleep() for real projects
   Util::sleepFor(this->productorDelay);
