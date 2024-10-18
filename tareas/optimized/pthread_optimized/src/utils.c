@@ -1,6 +1,6 @@
 // Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"
+#include "heat_simulation.h"
 
 /**
  * @brief Cuenta el número de líneas no vacías en un archivo de texto.
