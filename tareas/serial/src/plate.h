@@ -3,6 +3,12 @@
 #ifndef TAREAS_SERIAL_SRC_PLATE_H_
 #define PLATE_H
 
+/** Especificar el tamaño máximo permitido para las rutas de archivos. */
+#define MAX_PATH_LENGTH 1024
+
+/** Medir tiempo de ejecución. */
+#define _POSIX_C_SOURCE 199309L
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,9 +17,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
-/** Especificar el tamaño máximo permitido para las rutas de archivos. */
-#define MAX_PATH_LENGTH 260
 
 /**
  * @struct Plate

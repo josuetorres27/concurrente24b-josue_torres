@@ -6,6 +6,9 @@
 /** Especificar el tamaño máximo permitido para las rutas de archivos. */
 #define MAX_PATH_LENGTH 1024
 
+/** Medir tiempo de ejecución. */
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

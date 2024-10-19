@@ -25,6 +25,10 @@
  * @return Código de retorno del programa.
  */
 int main(int argc, char *argv[]) {
+  /** Tomar el tiempo de inicio. */
+  struct timespec start_time, finish_time;
+  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &start_time);
+
   /**
    * @brief Verifica que los argumentos proporcionados en la línea de comandos 
    * sean correctos.
@@ -123,5 +127,18 @@ int main(int argc, char *argv[]) {
     free(plate.data);
   }
   fclose(file);
+
+  /** Tomar el tiempo de finalización. */
+  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &finish_time);
+
+  /** Calcular el tiempo transcurrido en segundos y nanosegundos. */
+  double elapsed_secs = (finish_time.tv_sec - start_time.tv_sec) +
+    (finish_time.tv_nsec - start_time.tv_nsec) * 1e-9;
+  double elapsed_ns = (finish_time.tv_sec - start_time.tv_sec) * 1e9 +
+    (finish_time.tv_nsec - start_time.tv_nsec);
+
+  printf("Execution time (seconds): %.9lf\n", elapsed_secs);
+  printf("Execution time (nanoseconds): %.9lf\n", elapsed_ns);
+
   return EXIT_SUCCESS;
 }

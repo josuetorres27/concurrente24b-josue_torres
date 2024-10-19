@@ -34,6 +34,10 @@
  * - 3: Directorio de entrada donde se encuentran los archivos de placas.
  */
 int main(int argc, char* argv[]) {
+  /** Tomar el tiempo de inicio. */
+  struct timespec start_time, finish_time;
+  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &start_time);
+
   const char* job_name = argv[2];
   const char* dir = argv[3];
   uint64_t thread_count = sysconf(_SC_NPROCESSORS_ONLN);
@@ -57,5 +61,18 @@ int main(int argc, char* argv[]) {
     }
     free(sim_params);
   }
+
+  /** Tomar el tiempo de finalización. */
+  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &finish_time);
+
+  /** Calcular el tiempo transcurrido en segundos y nanosegundos. */
+  double elapsed_secs = (finish_time.tv_sec - start_time.tv_sec) +
+    (finish_time.tv_nsec - start_time.tv_nsec) * 1e-9;
+  double elapsed_ns = (finish_time.tv_sec - start_time.tv_sec) * 1e9 +
+    (finish_time.tv_nsec - start_time.tv_nsec);
+
+  printf("Execution time (seconds): %.9lf\n", elapsed_secs);
+  printf("Execution time (nanoseconds): %.9lf\n", elapsed_ns);
+
   return 0;
 }
