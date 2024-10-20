@@ -36,8 +36,18 @@ void configure_simulation(const char* plate_filename, SimData params,
   assert(shared_data);
 
   /** Leer la cantidad de filas y columnas. */
-  fread(&(shared_data->rows), sizeof(uint64_t), 1, plate_file);
-  fread(&(shared_data->cols), sizeof(uint64_t), 1, plate_file);
+  if (fread(&(shared_data->rows), sizeof(uint64_t), 1, plate_file) != 1) {
+    fprintf(stderr, "Error reading the number of rows.\n");
+    fclose(plate_file);
+    free(shared_data);
+    return;
+  }
+  if (fread(&(shared_data->cols), sizeof(uint64_t), 1, plate_file) != 1) {
+    fprintf(stderr, "Error reading the number of columns.\n");
+    fclose(plate_file);
+    free(shared_data);
+    return;
+  }
 
   /** Ajustar el número de hilos si es mayor que el número de filas. */
   if (thread_count > shared_data->rows) {
@@ -49,11 +59,11 @@ void configure_simulation(const char* plate_filename, SimData params,
   if (!shared_data->matrix) {
     fprintf(stderr, "Could not allocate memory for matrix rows.\n");
     fclose(plate_file);
+    free(shared_data);
     return;
   }
   for (uint64_t i = 0; i < shared_data->rows; i++) {
-    shared_data->matrix[i] = (double*) malloc(shared_data->cols *
-      sizeof(double));
+    shared_data->matrix[i] = (double*) malloc(shared_data->cols * sizeof(double));
     if (!shared_data->matrix[i]) {
       fprintf(stderr, "Could not allocate memory for row %lu.\n", i);
       for (uint64_t j = 0; j < i; j++) {
@@ -61,6 +71,7 @@ void configure_simulation(const char* plate_filename, SimData params,
       }
       free(shared_data->matrix);
       fclose(plate_file);
+      free(shared_data);
       return;
     }
   }
@@ -68,7 +79,17 @@ void configure_simulation(const char* plate_filename, SimData params,
   /** Rellenar la matriz con las temperaturas. */
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     for (uint64_t j = 0; j < shared_data->cols; j++) {
-      fread(&(shared_data->matrix[i][j]), sizeof(double), 1, plate_file);
+      if (fread(&(shared_data->matrix[i][j]), sizeof(double), 1, plate_file) != 1) {
+        fprintf(stderr, "Error reading matrix data at row %" PRIu64 ", \
+          col %" PRIu64 ".\n", i, j);
+        for (uint64_t k = 0; k < shared_data->rows; k++) {
+          free(shared_data->matrix[k]);
+        }
+        free(shared_data->matrix);
+        fclose(plate_file);
+        free(shared_data);
+        return;
+      }
     }
   }
   fclose(plate_file);

@@ -69,7 +69,7 @@ int create_report(const char* job_file, const char* plate_filename,
   int written = snprintf(full_report_path, sizeof(full_report_path), "%s/%s",
     output_dir, report_filename);
   /** Verificar si la ruta al directorio de salida es demasiado larga. */
-  if (written < 0 || written >= sizeof(full_report_path)) {
+  if (written < 0 || written >= (int) sizeof(full_report_path)) {
     fprintf(stderr, "Error: the full report path is too long\n");
     return EXIT_FAILURE;
   }

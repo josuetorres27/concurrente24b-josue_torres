@@ -1,0 +1,134 @@
+= Reporte de optimizaciones
+:experimental:
+:nofooter:
+:source-highlighter: pygments
+:sectnums:
+:stem: latexmath
+:toc:
+:xrefstyle: short
+
+
+
+[[serial_optimizations]]
+== Optimizaciones seriales
+
+[%autowidth.stretch,options="header"]
+|===
+|Iter. |Etiqueta |Duración (s) |_Speedup_ |Descripción corta
+|0 |Serial0 |4018.292573346 |1.00 |Versión serial inicial (Tarea01)
+|1 |Serial1 |3638.373046516 | |Función configure_simulation
+|2 | | | |
+|===
+
+
+[[serial_iter00]]
+=== Versión serial original (Tarea01)
+
+=== Algunos de los aspectos no eficientes de esta versión son:
+
+* La copia de datos entre matrices en cada iteración. Esto es costoso porque se realiza un recorrido completo por la matriz, generando sobrecarga innecesaria, especialmente cuando se trabaja con matrices grandes.
+
+* El bucle anidado en la actualización de celdas. Al igual que el aspecto anterior, a medida que el tamaño de la matriz aumenta, el costo de recorrer todas las celdas se vuelve más costoso.
+
+* La condición de parada basada en max_delta. En cada iteración, el código verifica si la diferencia máxima entre las temperaturas actualizadas y las anteriores permite detener la simulación. Calcular esta diferencia implica comparar cada nueva temperatura con la anterior, lo que añade una operación adicional en cada celda.
+
+
+=== Algunos de los aspectos de esta versión que se consideraron eficientes son:
+
+* El uso de memoria dinámica para las matrices. El uso de malloc para asignar memoria para las matrices permite trabajar con láminas de tamaño arbitrario o desconocido.
+
+* El uso de variables locales. Estas permiten accesar a ellas rápidamente, sin introducir dependencias innecesarias entre las iteraciones.
+
+
+[[serial_iter01]]
+=== Iteración 1
+
+Se implementó la función configure_simulation de forma que solamente se realice un llamado a esta para gestionar la lectura de archivos, la simulación y la escritura de archivos. De esta forma, los distintos procesos no se realizan desde la función main, sino que se agiliza el manejo de datos a través de una sola función. La optimización sí logró mejorar el tiempo de ejecución.
+
+=== Código sin la optimización (dentro de la función main):
+
+    if (read_dimensions(filepath, &plate) != EXIT_SUCCESS) {
+      fclose(file);
+      return EXIT_FAILURE;
+    }
+    if (read_plate(filepath, &plate) != EXIT_SUCCESS) {
+      fclose(file);
+      return EXIT_FAILURE;
+    }
+
+    int k;
+    time_t time_seconds;
+    simulate(&plate, delta_t, alpha, h, epsilon, &k, &time_seconds);
+
+    create_report(job_file, plate_filename, delta_t, alpha, h, epsilon, k,
+      time_seconds);
+
+    char output_filename[MAX_PATH_LENGTH];
+    snprintf(output_filename, sizeof(output_filename), "plate%03d-%d.bin",
+      atoi(&plate_filename[5]), k);
+    write_plate(output_filename, &plate);
+
+
+=== Código optimizado (dentro de la función main):
+
+  for (uint64_t i = 0; i < struct_count; i++) {
+    plate_filename = simulation_parameters[i].bin_name;
+    /** Ejecutar la simulación. */
+    configure_simulation(plate_filename, simulation_parameters[i], report_path,
+      input_dir, output_dir);
+  }
+
+#Describa aquí qué aspectos tenía la versión serial no eficientes que podrían o fueron opitimizados luego. También aspectos que usted considera eficientes, los cuales explicarían por qué no amerita una optimización.#
+#Para cada iteración del ciclo de optimización, cree una subsección como esta. Resuma en máximo un párrafo en qué consiste la optimización. Su objetivo es que quien lea este documento entienda claramente qué se intentó mejorar. Provea trocitos de código fuente o pseudocódigo que ayude a entender la optimización potencial. Indique si el intento logró incrementar el desempeño. En caso de no lograrlo, conjeture la causa. Eso ayudaría a ahorrar tiempo a otras personas que tengan la misma inquietud.#
+
+
+
+[[concurrent_optimizations]]
+== Optimizaciones concurrentes
+
+[%autowidth.stretch,options="header"]
+|===
+|Iter. |Etiqueta |Duración (s) |_Speedup_ |Eficiencia |Descripción corta
+|- |Serial1 |3638.373046516 |1.00 |1.00 |Versión serial final
+|- |Conc0 |4162.956732401 | | |Versión concurrente inicial (Tarea02)
+|1 |Conc1 |3503.823419546 | | |Sincronización entre hilos
+|2 |Conc2 |3239.175277653 | | |Mapeo dinámico
+|3 |Conc3 |3211.563289033 | | |Acceso contiguo a memoria
+|===
+
+
+[[conc_iter00]]
+=== Versión concurrente inicial (Tarea02)
+
+=== Algunos de los aspectos no eficientes de esta versión son:
+
+* La asignación de memoria en cada hilo. Esto significa que si se usan muchos hilos, se deben crear múltiples copias de matrices grandes, aumentando el uso de memoria y el tiempo dedicado a la asignación y liberación de esta.
+
+* La sincronización entre los hilos. Esta versión no cuenta con un mecanismo explícito de sincronización entre los hilos. Aunque cada hilo trabaja en una parte separada de la matriz, puede haber problemas en la lectura y escritura entre cada región.
+
+* La distribución de las filas entre los hilos es estática. Esto puede ser un riesgo debido a que, si algunas filas tienen más celdas a actualizar debido a su proximidad con otras regiones, los hilos podrían estar desbalanceados en su carga.
+
+
+=== Algunos de los aspectos de esta versión que se consideraron eficientes son:
+
+* La modularización del código. Se utilizaron las funciones configure_simulation, simulate y thread_sim, para facilitar la separación entre las tareas de configuración, simulación principal y el trabajo que realiza cada hilo, permitiendo realizar cambios o mejoras de manera localizada sin afectar todo el código.
+
+* El manejo de los parámetros de la simulación. Estos se organizaron en una estructura de datos compartida, lo que simplifica el acceso a ellos por parte de los hilos. De esta forma, se reduce la necesidad de pasos adicionales para pasar múltiples argumentos a las funciones.
+
+
+[[conc_iter01]]
+=== Iteración 1
+
+#Para cada iteración del ciclo de optimización, cree una subsección como esta. Resuma en máximo un párrafo en qué consiste la optimización. Su objetivo es que quien lea este documento entienda claramente qué se intentó mejorar. Provea trocitos de código fuente o pseudocódigo que ayude a entender la optimización potencial. Indique si el intento logró incrementar el desempeño. En caso de no lograrlo, conjeture la causa. Eso ayudaría a ahorrar tiempo a otras personas que tengan la misma inquietud.#
+
+
+[[optimization_comparison]]
+=== Comparación de optimizaciones
+
+(pendiente)
+
+
+[[concurrency_comparison]]
+=== Comparación del grado de concurrencia
+
+(pendiente)

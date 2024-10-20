@@ -46,8 +46,19 @@ void configure_simulation(const char* dir, SimData* sim_params, uint64_t lines,
       return;
     }
     /** Asignar memoria para las filas y columnas de la lámina. */
-    fread(&(shared_data->rows), sizeof(uint64_t), 1, file);
-    fread(&(shared_data->cols), sizeof(uint64_t), 1, file);
+    if (fread(&(shared_data->rows), sizeof(uint64_t), 1, file) != 1) {
+      fprintf(stderr, "Error reading rows from binary file: %s\n",
+        sim_params[i].bin_name);
+      fclose(file);
+      return;
+    }
+    if (fread(&(shared_data->cols), sizeof(uint64_t), 1, file) != 1) {
+      fprintf(stderr, "Error reading cols from binary file: %s\n",
+        sim_params[i].bin_name);
+      fclose(file);
+      return;
+    }
+
     shared_data->data = malloc(shared_data->rows * sizeof(double*));
     if (shared_data->data == NULL) {
       fprintf(stderr, "Error allocating memory for plate rows\n");

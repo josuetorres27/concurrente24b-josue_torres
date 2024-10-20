@@ -26,13 +26,24 @@ void configure_simulation(const char* plate_filename, SimData params,
   }
 
   /** Leer los valores de la lámina. */
-  fread(&rows, sizeof(uint64_t), 1, bin_file);
-  fread(&cols, sizeof(uint64_t), 1, bin_file);
+  if (fread(&rows, sizeof(uint64_t), 1, bin_file) != 1) {
+    fprintf(stderr, "Error reading number of rows.\n");
+    fclose(bin_file);
+    return;
+  }
+  if (fread(&cols, sizeof(uint64_t), 1, bin_file) != 1) {
+    fprintf(stderr, "Error reading number of columns.\n");
+    fclose(bin_file);
+    return;
+  }
+
   double** data = (double**) malloc(rows * sizeof(double*));
   if (!data) {
     fprintf(stderr, "Error allocating memory for plate rows.\n");
+    fclose(bin_file);
     return;
   }
+
   for (uint64_t i = 0; i < rows; i++) {
     data[i] = (double*) malloc(cols * sizeof(double));
     if (!data[i]) {
@@ -41,12 +52,23 @@ void configure_simulation(const char* plate_filename, SimData params,
         free(data[j]);
       }
       free(data);
+      fclose(bin_file);
       return;
     }
   }
+
   for (uint64_t i = 0; i < rows; i++) {
     for (uint64_t j = 0; j < cols; j++) {
-      fread(&data[i][j], sizeof(double), 1, bin_file);
+      if (fread(&data[i][j], sizeof(double), 1, bin_file) != 1) {
+        fprintf(stderr, "Error reading plate data at row %" PRIu64 ", \
+          col %" PRIu64 ".\n", i, j);
+        for (uint64_t k = 0; k < rows; k++) {
+          free(data[k]);
+        }
+        free(data);
+        fclose(bin_file);
+        return;
+      }
     }
   }
   fclose(bin_file);
@@ -59,6 +81,7 @@ void configure_simulation(const char* plate_filename, SimData params,
   const time_t secs = states * params.delta_t;
   char time[49];
   format_time(secs, time, sizeof(time));
+
   /** Escribir la nueva placa. */
   write_plate(output_dir, data, rows, cols, states, plate_filename);
   for (uint64_t i = 0; i < rows; i++) {

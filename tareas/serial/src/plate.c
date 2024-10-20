@@ -70,8 +70,8 @@ int read_plate(const char* filepath, Plate* plate) {
      * @brief Leer los datos de la placa térmica desde el archivo binario y 
      * almacenarlos en la matriz.
      */
-    if (fread(plate->data[i], sizeof(double), plate->cols,
-      file) != plate->cols) {
+    if (fread(plate->data[i], sizeof(double), (size_t) plate->cols, file) !=
+      (size_t) plate->cols) {
       perror("Error reading plate data");
       fclose(file);
       return EXIT_FAILURE;
