@@ -53,7 +53,7 @@
 
 * Incremento de velocidad / speedup / Aceleración: métrica de qué tanto rendimiento se gana al dividir las tareas en varias unidades de procesamiento. Se calcula como la relación entre el tiempo que tarda una computación previa a la optimización (Tbefore), contra el tiempo que tarda la misma computación posterior a la optimización (Tafter).
 
-* Comunicación punto a punto entre procesos:
+* Comunicación punto a punto entre procesos (send-receive): envía mensajes de un proceso a otro que forman parte del mismo equipo. MPI provee una familia de funciones para enviar y recibir mensajes. Las dos más básicas son: MPI_Send y MPI_Recv.
 
 * Comunicación colectiva entre procesos:
 
