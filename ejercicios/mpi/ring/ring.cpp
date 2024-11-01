@@ -1,4 +1,5 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Esteban Solís <esteban.solisalfaro@ucr.ac.cr>
+// Copyright 2024 Josué Torres <josue.torressibaja@ucr.ac.cr>
 
 #include <mpi.h>
 #include <cstdlib>
