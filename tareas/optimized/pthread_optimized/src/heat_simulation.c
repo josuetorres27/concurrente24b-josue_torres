@@ -63,7 +63,8 @@ void configure_simulation(const char* plate_filename, SimData params,
     return;
   }
   for (uint64_t i = 0; i < shared_data->rows; i++) {
-    shared_data->matrix[i] = (double*) malloc(shared_data->cols * sizeof(double));
+    shared_data->matrix[i] = (double*) malloc(shared_data->cols *
+      sizeof(double));
     if (!shared_data->matrix[i]) {
       fprintf(stderr, "Could not allocate memory for row %lu.\n", i);
       for (uint64_t j = 0; j < i; j++) {
@@ -79,9 +80,9 @@ void configure_simulation(const char* plate_filename, SimData params,
   /** Rellenar la matriz con las temperaturas. */
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     for (uint64_t j = 0; j < shared_data->cols; j++) {
-      if (fread(&(shared_data->matrix[i][j]), sizeof(double), 1, plate_file) != 1) {
-        fprintf(stderr, "Error reading matrix data at row %" PRIu64 ", \
-          col %" PRIu64 ".\n", i, j);
+      if (fread(&(shared_data->matrix[i][j]), sizeof(double), 1, plate_file)
+        != 1) {
+        fprintf(stderr, "Error reading matrix data.\n");
         for (uint64_t k = 0; k < shared_data->rows; k++) {
           free(shared_data->matrix[k]);
         }

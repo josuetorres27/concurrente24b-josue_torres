@@ -60,8 +60,7 @@ void configure_simulation(const char* plate_filename, SimData params,
   for (uint64_t i = 0; i < rows; i++) {
     for (uint64_t j = 0; j < cols; j++) {
       if (fread(&data[i][j], sizeof(double), 1, bin_file) != 1) {
-        fprintf(stderr, "Error reading plate data at row %" PRIu64 ", \
-          col %" PRIu64 ".\n", i, j);
+        fprintf(stderr, "Error reading plate data.\n");
         for (uint64_t k = 0; k < rows; k++) {
           free(data[k]);
         }
