@@ -69,7 +69,7 @@
 
 * RSP: stack pointer.
 
-* Assert: biblioteca de pruebas unitarias, indica si la memoria es válida o no. Si no es válida detiene el programa.
+* Assert: biblioteca de pruebas unitarias, indica si la memoria es válida o no. Si no es válida, detiene el programa.
 
 * Buffer: es como un sistema de correos, en el que el productor deja mensajes dentro del buffer para que el consumidor los lea en cuanto tenga tiempo. Es como un buzón en el que se dejan mensajes que no requieren comunicación directa ni respuesta inmediata. Espacio de memoria donde algunos procesos pueden poner mensajes que otro proceso va a consumir eventualmente. El buffer acotado tiene un tamaño fijo, el no acotado no tiene restricciones de tamaño.
 

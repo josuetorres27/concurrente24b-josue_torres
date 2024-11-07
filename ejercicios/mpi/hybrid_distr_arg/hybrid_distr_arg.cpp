@@ -1,6 +1,16 @@
 // Copyright 2023 Jeisson Hidalgo jeisson.hidalgo@ucr.ac.cr CC-BY-4
 // Adapted by Josue Torres Sibaja C37853
 
+/**
+ * @note Must compile with:
+ *
+ * make clean
+ * make
+ * bin/hybrid_distr_arg X Y
+ *
+ * (Replace X and Y with the start and end number of the range respectively)
+ */
+
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
