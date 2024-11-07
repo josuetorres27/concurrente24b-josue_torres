@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
-#include <mpi.h>
-#include <omp.h>
+#include <mpi.h>  // NOLINT
+#include <omp.h>  // NOLINT
 
 /**
  * @brief Calculate the start index for a process's range.
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 
     #pragma omp parallel default(none) \
       shared(process_start, process_finish, std::cout, rank, hostname)
-    {
+    {  // NOLINT
       int thread_start = -1;
       int thread_finish = -1;
 
