@@ -55,9 +55,9 @@
 
 * Comunicación punto a punto entre procesos (send-receive): envía mensajes de un proceso a otro que forman parte del mismo equipo. MPI provee una familia de funciones para enviar y recibir mensajes. Las dos más básicas son: MPI_Send y MPI_Recv.
 
-* Comunicación colectiva entre procesos:
+* Comunicación colectiva entre procesos: es donde un proceso envía un mensaje a todos los demas (broadcast), o un proceso recibe mensajes de todos los demas (reduction).
 
-* Reducción:
+* Reducción: como el paralelismo contribuye en incrementar la velocidad en que la máquina procesa colecciones de datos, una operación común derivada del paradigma de programación funcional es la reducción de los valores de una colección a uno sólo (reduce). Es una operación en la que una colección de datos (como una lista o un arreglo) se combina de forma eficiente en un solo valor mediante una operación acumulativa, como suma, producto, máximo o mínimo. Esta operación es especialmente útil cuando se trabaja con grandes volúmenes de datos que deben procesarse rápidamente.
 
 * Memoria de código: espacio de memoria donde el código (instrucciones) se copia ya codificado en lenguaje máquina.
 
