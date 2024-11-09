@@ -1,5 +1,13 @@
 // Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
+/**
+ * @note The program can be compiled with (in case Makefile or other
+ * compilation commands do not work):
+ *
+ * mpic++ -o ping_pong_realistic ping_pong_realistic.cpp
+ * mpiexec -n 2 ./ping_pong_realistic 3 85.5 88
+ */
+
 #include <mpi.h>
 #include <iostream>
 #include <random>
