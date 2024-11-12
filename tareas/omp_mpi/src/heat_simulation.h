@@ -63,7 +63,6 @@ void configure_simulation(const char* plate_filename, SimData params,
   const char* filepath, const char* input_dir, uint64_t thread_count);
 void simulate(uint64_t* states, uint64_t thread_count,
   SharedData* shared_data);
-void* thread_sim(void* data);
 
 /** Declaración de funciones auxiliares en utils.c. */
 uint64_t count_job_lines(FILE* bin_name);

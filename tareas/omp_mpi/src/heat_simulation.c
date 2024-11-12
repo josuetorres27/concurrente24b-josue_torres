@@ -141,128 +141,71 @@ void configure_simulation(const char* plate_filename, SimData params,
  */
 void simulate(uint64_t* states, uint64_t thread_count,
   SharedData* shared_data) {
-  pthread_t* threads = (pthread_t*) malloc(thread_count * sizeof(pthread_t));
-  assert(threads);
-
-  ThreadData* thread_data = (ThreadData*) malloc(thread_count *
-    sizeof(ThreadData));
-  assert(thread_data);
-
-  /** Asignar memoria para una copia de la matriz. */
-  double** matrix_copy = (double**) malloc(shared_data->rows *
-    sizeof(double*));
+  // Allocate memory for matrix copy.
+  double** matrix_copy = (double**)
+    malloc(shared_data->rows * sizeof(double*));
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     matrix_copy[i] = (double*) malloc(shared_data->cols * sizeof(double));
   }
 
   uint64_t state = 0;
   bool equilibrium = false;
+  const double delta_t = shared_data->delta_t;
+  const double h = shared_data->h;
+  const double alpha = shared_data->alpha;
+  double** matrix = shared_data->matrix;
+  const double epsilon = shared_data->epsilon;
 
   while (!equilibrium) {
-    equilibrium = true;
     state++;
 
-    /** Copiar la matriz antes de que los hilos la actualicen. */
+    // Copy matrix.
+    #pragma omp parallel for collapse(2) nowait
     for (uint64_t i = 0; i < shared_data->rows; i++) {
       for (uint64_t j = 0; j < shared_data->cols; j++) {
-        matrix_copy[i][j] = shared_data->matrix[i][j];
+        matrix_copy[i][j] = matrix[i][j];
       }
     }
 
-    /** Distribuir el trabajo entre los hilos. */
-    for (uint64_t i = 0; i < thread_count; i++) {
-      uint64_t rows_per_thread = (shared_data->rows - 2) / thread_count;
-      thread_data[i].start_row = 1 + i * rows_per_thread;
-      thread_data[i].end_row = (i == thread_count - 1) ?
-        shared_data->rows - 1 : thread_data[i].start_row + rows_per_thread;
-      thread_data[i].shared_data = shared_data;
+    // Ensure matrix copy is complete before calculations.
+    #pragma omp barrier
 
-      /** Crear los hilos. */
-      pthread_create(&threads[i], NULL, thread_sim, &thread_data[i]);
-    }
+    bool local_equilibrium = true;
+    #pragma omp parallel
+    {
+      bool thread_equilibrium = true;
 
-    /** Esperar que todos los hilos terminen. */
-    for (uint64_t i = 0; i < thread_count; i++) {
-      pthread_join(threads[i], NULL);
-    }
+      #pragma omp for collapse(2) schedule(static)
+      for (uint64_t i = 1; i < shared_data->rows - 1; i++) {
+        for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
+          double cell = matrix_copy[i][j];
+          double cells_around = matrix_copy[i-1][j] + matrix_copy[i][j+1] +
+            matrix_copy[i+1][j] + matrix_copy[i][j-1];
+          double new_temp = cell + (delta_t * alpha / (h * h)) *
+            (cells_around - 4 * cell);
+          matrix[i][j] = new_temp;
 
-    /** Verificar el equilibrio térmico. */
-    for (uint64_t i = 1; i < shared_data->rows - 1; i++) {
-      for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
-        double cell = shared_data->matrix[i][j];
-        if (fabs(matrix_copy[i][j] - cell) >= shared_data->epsilon) {
-          equilibrium = false;
-          break;
+          if (fabs(new_temp - cell) >= epsilon) {
+            thread_equilibrium = false;
+          }
         }
       }
-      if (!equilibrium) {
-        break;
+
+      // Critical section with minimal overhead.
+      #pragma omp critical
+      {
+        if (!thread_equilibrium) local_equilibrium = false;
       }
     }
+
+    equilibrium = local_equilibrium;
   }
 
   *states = state;
 
-  /** Liberar memoria. */
+  // Free memory.
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     free(matrix_copy[i]);
   }
   free(matrix_copy);
-  free(threads);
-  free(thread_data);
-}
-
-/**
- * @brief Función que ejecuta cada hilo para simular la propagación del calor
- * en un rango de filas de la matriz.
- *
- * @details Cada hilo es responsable de actualizar una porción de la matriz
- * basada en la ecuación de propagación del calor. Los valores actualizados se
- * escriben de vuelta en la matriz compartida.
- *
- * @param data Puntero a los datos privados del hilo, que contiene su rango de
- * filas y los datos compartidos.
- * @return NULL
- */
-void* thread_sim(void* data) {
-  assert(data);
-  ThreadData* thread_data = (ThreadData*) data;
-  SharedData* shared_data = thread_data->shared_data;
-
-  uint64_t delta_t = shared_data->delta_t;
-  uint64_t h = shared_data->h;
-  double alpha = shared_data->alpha;
-  double** matrix = shared_data->matrix;
-
-  /** Crear una copia de la matriz en la memoria local del hilo. */
-  double** thread_matrix = malloc(shared_data->rows * sizeof(double*));
-  for (uint64_t i = 0; i < shared_data->rows; i++) {
-    thread_matrix[i] = malloc(shared_data->cols * sizeof(double));
-  }
-
-  /** Realizar la simulación con las filas correspondientes. */
-  for (uint64_t i = thread_data->start_row; i < thread_data->end_row; i++) {
-    for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
-      double cell = matrix[i][j];
-      double cells_around = matrix[i-1][j] + matrix[i][j+1] + matrix[i+1][j] +
-        matrix[i][j-1];
-      thread_matrix[i][j] = cell + (delta_t * alpha / (h * h)) *
-        (cells_around - 4 * cell);
-    }
-  }
-
-  /** Copiar los resultados en la matriz compartida. */
-  for (uint64_t i = thread_data->start_row; i < thread_data->end_row; i++) {
-    for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
-      shared_data->matrix[i][j] = thread_matrix[i][j];
-    }
-  }
-
-  /** Liberar la memoria local. */
-  for (uint64_t i = 0; i < shared_data->rows; i++) {
-    free(thread_matrix[i]);
-  }
-  free(thread_matrix);
-
-  return NULL;
 }
