@@ -1,4 +1,4 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
 #include "heat_simulation.h"
 
@@ -30,22 +30,10 @@
  * @param argv Argumentos de línea de comandos.
  */
 int main(int argc, char *argv[]) {
-  /** Tomar el tiempo de inicio. */
-  struct timespec start_time, finish_time;
-  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &start_time);
+  double start_time = omp_get_wtime();  ///< OpenMP timing.
 
-  /**
-   * Verificar que los argumentos proporcionados en la línea de comandos sean
-   * correctos.
-   */
+  // Verify command line arguments.
   if (argc < 4 || argc > 5) {
-    /**
-     * Si se quiere compilar el programa con el Makefile en el directorio raíz
-     * "pthread_optimized", se debe correr el programa de la siguiente forma:
-     * bin/pthread_optimized job001.txt test/job001/input test/job001/output 4
-     *
-     * Los "job" pueden ser reemplazados por el número de job que se desee.
-     */
     fprintf(stderr, "Usage: <job file> <input dir> <output dir> "
       "<thread_count>\n");
     return 11;
@@ -54,20 +42,23 @@ int main(int argc, char *argv[]) {
   const char* input_dir = argv[2];
   const char* output_dir = argv[3];
 
-  /** Configurar cantidad de hilos. */
+  // Configure thread count.
   uint64_t thread_count = sysconf(_SC_NPROCESSORS_ONLN);
   if (argc == 5) {
-    if (sscanf(argv[4], "%" SCNu64, &thread_count) == 1) {
-    } else {
+    if (sscanf(argv[4], "%" SCNu64, &thread_count) != 1) {
       fprintf(stderr, "Invalid thread count.\n");
       return 12;
     }
   }
 
+  // Set OpenMP thread count.
+  omp_set_num_threads(thread_count);
+
+  // Extract job number from filename.
   uint64_t job_num = 0;
   sscanf(job_filename, "job%03lu.txt", &job_num);
 
-  /** Crear la ruta para los archivos de entrada. */
+  // Create paths for input/output files.
   char filepath[150];
   snprintf(filepath, sizeof(filepath), "%s", output_dir);
   char txt_path[255];
@@ -75,13 +66,16 @@ int main(int argc, char *argv[]) {
   char report_path[255];
   snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", filepath,
     job_num);
+
+  // Create report file.
   FILE* report_file = fopen(report_path, "w");
   if (!report_file) {
-    perror("Error opening report file.\n");
+    perror("Error opening report file.");
     return 1;
   }
   fclose(report_file);
 
+  // Read simulation parameters.
   uint64_t struct_count = 0;
   SimData* simulation_parameters = read_job_file(txt_path, &struct_count);
   if (simulation_parameters == NULL) {
@@ -89,27 +83,23 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // Run simulation.
   const char* plate_filename;
   for (uint64_t i = 0; i < struct_count; i++) {
     plate_filename = simulation_parameters[i].bin_name;
-    /** Ejecutar la simulación. */
     configure_simulation(plate_filename, simulation_parameters[i], report_path,
       input_dir, thread_count);
   }
 
-  /** Tomar el tiempo de finalización. */
-  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &finish_time);
-
-  /** Calcular el tiempo transcurrido en segundos y nanosegundos. */
-  double elapsed_secs = (finish_time.tv_sec - start_time.tv_sec) +
-    (finish_time.tv_nsec - start_time.tv_nsec) * 1e-9;
-  double elapsed_ns = (finish_time.tv_sec - start_time.tv_sec) * 1e9 +
-    (finish_time.tv_nsec - start_time.tv_nsec);
+  // Calculate elapsed time using OpenMP timing.
+  double end_time = omp_get_wtime();
+  double elapsed_secs = end_time - start_time;
+  double elapsed_ns = elapsed_secs * 1e9;
 
   printf("Execution time (seconds): %.9lf\n", elapsed_secs);
   printf("Execution time (nanoseconds): %.9lf\n", elapsed_ns);
 
-  /** Liberar memoria. */
+  // Free memory.
   free(simulation_parameters);
   return 0;
 }
