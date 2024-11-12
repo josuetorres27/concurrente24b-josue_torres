@@ -22,7 +22,7 @@
  */
 void configure_simulation(const char* plate_filename, SimData params,
   const char* report_file, const char* input_dir, uint64_t thread_count) {
-  /** Crear la ruta hacia el archivo binario. */
+  // Create path to binary file.
   char bin_path[257];
   snprintf(bin_path, sizeof(bin_path), "%s/%s", input_dir, plate_filename);
   FILE* plate_file = fopen(bin_path, "rb");
@@ -31,11 +31,11 @@ void configure_simulation(const char* plate_filename, SimData params,
     return;
   }
 
-  /** Asignar datos compartidos. */
+  // Allocate shared data.
   SharedData* shared_data = (SharedData*) calloc(1, sizeof(SharedData));
   assert(shared_data);
 
-  /** Leer la cantidad de filas y columnas. */
+  // Read rows and columns.
   if (fread(&(shared_data->rows), sizeof(uint64_t), 1, plate_file) != 1) {
     fprintf(stderr, "Error reading the number of rows.\n");
     fclose(plate_file);
@@ -49,12 +49,13 @@ void configure_simulation(const char* plate_filename, SimData params,
     return;
   }
 
-  /** Ajustar el número de hilos si es mayor que el número de filas. */
+  // Adjust thread count if greater than number of rows.
   if (thread_count > shared_data->rows) {
     thread_count = shared_data->rows;
   }
+  omp_set_num_threads(thread_count);
 
-  /** Asignación dinámica de memoria para la matriz. */
+  // Allocate memory for matrix.
   shared_data->matrix = malloc(shared_data->rows * sizeof(double*));
   if (!shared_data->matrix) {
     fprintf(stderr, "Could not allocate memory for matrix rows.\n");
@@ -63,8 +64,8 @@ void configure_simulation(const char* plate_filename, SimData params,
     return;
   }
   for (uint64_t i = 0; i < shared_data->rows; i++) {
-    shared_data->matrix[i] = (double*) malloc(shared_data->cols *
-      sizeof(double));
+    shared_data->matrix[i] = (double*)
+      malloc(shared_data->cols * sizeof(double));
     if (!shared_data->matrix[i]) {
       fprintf(stderr, "Could not allocate memory for row %lu.\n", i);
       for (uint64_t j = 0; j < i; j++) {
@@ -77,11 +78,11 @@ void configure_simulation(const char* plate_filename, SimData params,
     }
   }
 
-  /** Rellenar la matriz con las temperaturas. */
+  // Fill matrix with temperatures.
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     for (uint64_t j = 0; j < shared_data->cols; j++) {
-      if (fread(&(shared_data->matrix[i][j]), sizeof(double), 1, plate_file)
-        != 1) {
+      if (fread(&(shared_data->matrix[i][j]), sizeof(double), 1,
+        plate_file) != 1) {
         fprintf(stderr, "Error reading matrix data.\n");
         for (uint64_t k = 0; k < shared_data->rows; k++) {
           free(shared_data->matrix[k]);
@@ -95,35 +96,29 @@ void configure_simulation(const char* plate_filename, SimData params,
   }
   fclose(plate_file);
 
-  /** Llenar los datos compartidos con los parámetros de la simulación. */
+  // Fill shared data with simulation parameters.
   shared_data->delta_t = params.delta_t;
   shared_data->alpha = params.alpha;
   shared_data->h = params.h;
   shared_data->epsilon = params.epsilon;
 
-  /** Iniciar el mutex. */
-  pthread_mutex_init(&shared_data->matrix_mutex, NULL);
-
-  /** Iniciar la simulación. */
+  // Start simulation.
   uint64_t states = 0;
   simulate(&states, thread_count, shared_data);
 
-  /** Destruir el mutex. */
-  pthread_mutex_destroy(&shared_data->matrix_mutex);
-
-  /** Calcular el tiempo transcurrido. */
+  // Calculate elapsed time.
   const time_t seconds = states * params.delta_t;
   char time[49];
   format_time(seconds, time, sizeof(time));
 
-  /** Escribir los nuevos datos de la lámina. */
+  // Write new plate data.
   write_plate(input_dir, shared_data->matrix, shared_data->rows,
     shared_data->cols, states, plate_filename);
 
-  /** Escribir el reporte. */
+  // Write report.
   create_report(report_file, states, time, params, plate_filename);
 
-  /** Liberar la memoria. */
+  // Free memory.
   for (uint64_t i = 0; i < shared_data->rows; i++) {
     free(shared_data->matrix[i]);
   }
