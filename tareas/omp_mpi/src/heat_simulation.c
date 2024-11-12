@@ -1,24 +1,26 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
 #include "heat_simulation.h"
 
 /**
- * @brief Configura los parámetros de la simulación y ejecuta la propagación
- * del calor.
+ * @brief Configures and initiates a heat diffusion simulation from a binary
+ * plate file.
  *
- * @details Esta función inicializa las estructuras de datos compartidos, lee
- * una matriz desde un archivo binario, configura los parámetros de la
- * simulación y ejecuta la propagación del calor utilizando múltiples hilos.
- * También gestiona la memoria y guarda los resultados de la simulación en un
- * archivo y un reporte.
+ * @details This function loads matrix data from a binary file, initializes
+ * simulation parameters, and begins the heat diffusion process using the
+ * 'simulate' function. The simulation is executed with a specified number of
+ * threads, utilizing OpenMP to set the thread count according to system
+ * capabilities.
  *
- * @param plate_filename Nombre del archivo binario que contiene los datos
- * iniciales de la lámina.
- * @param params Parámetros de la simulación.
- * @param report_file Nombre del archivo de reporte donde se escribirán los
- * resultados de la simulación.
- * @param input_dir Ruta del directorio donde se encuentra el archivo binario.
- * @param thread_count Número de hilos a utilizar para el cálculo en paralelo.
+ * @param plate_filename The name of the binary file containing the plate's
+ * initial state.
+ * @param params A SimData structure containing thermal properties and
+ * simulation parameters.
+ * @param report_file The path to the output file where simulation results will
+ * be written.
+ * @param input_dir The directory where the binary input file is located.
+ * @param thread_count Number of threads to use in the simulation; adjusted to
+ * row count if needed.
  */
 void configure_simulation(const char* plate_filename, SimData params,
   const char* report_file, const char* input_dir, uint64_t thread_count) {
@@ -97,17 +99,17 @@ void configure_simulation(const char* plate_filename, SimData params,
   fclose(plate_file);
 
   // Fill shared data with simulation parameters.
-  shared_data->delta_t = params.delta_t;
+  shared_data->delta = params.delta;
   shared_data->alpha = params.alpha;
   shared_data->h = params.h;
   shared_data->epsilon = params.epsilon;
 
   // Start simulation.
   uint64_t states = 0;
-  simulate(&states, thread_count, shared_data);
+  simulate(&states, shared_data);
 
   // Calculate elapsed time.
-  const time_t seconds = states * params.delta_t;
+  const time_t seconds = states * params.delta;
   char time[49];
   format_time(seconds, time, sizeof(time));
 
@@ -127,20 +129,21 @@ void configure_simulation(const char* plate_filename, SimData params,
 }
 
 /**
- * @brief Simula la propagación del calor en la matriz utilizando múltiples
- * hilos.
+ * @brief Simulates heat diffusion in a matrix with OpenMP parallelism.
  *
- * @details Esta función distribuye las filas de la matriz entre los hilos,
- * realiza el cálculo en paralelo y verifica si el sistema ha alcanzado el
- * equilibrio térmico.
+ * @details This function iteratively calculates heat distribution in a matrix
+ * until equilibrium is achieved, using OpenMP for parallel processing to
+ * improve speed.
+ * The function uses OpenMP to parallelize both matrix copying and heat
+ * calculations, optimizing for faster execution. Memory for the matrix copy is
+ * freed upon completion.
  *
- * @param states Puntero a la variable que almacena el número de estados hasta
- * el equilibrio.
- * @param thread_count Número de hilos a utilizar.
- * @param shared_data Puntero a la estructura de datos compartidos.
+ * @param states Pointer to store the number of iterations required to reach
+ * equilibrium.
+ * @param shared_data Pointer to a SharedData structure containing matrix data,
+ * dimensions, and thermal properties for the simulation.
  */
-void simulate(uint64_t* states, uint64_t thread_count,
-  SharedData* shared_data) {
+void simulate(uint64_t* states, SharedData* shared_data) {
   // Allocate memory for matrix copy.
   double** matrix_copy = (double**)
     malloc(shared_data->rows * sizeof(double*));
@@ -150,7 +153,7 @@ void simulate(uint64_t* states, uint64_t thread_count,
 
   uint64_t state = 0;
   bool equilibrium = false;
-  const double delta_t = shared_data->delta_t;
+  const double delta = shared_data->delta;
   const double h = shared_data->h;
   const double alpha = shared_data->alpha;
   double** matrix = shared_data->matrix;
@@ -160,7 +163,7 @@ void simulate(uint64_t* states, uint64_t thread_count,
     state++;
 
     // Copy matrix.
-    #pragma omp parallel for collapse(2) nowait
+    #pragma omp parallel for collapse(2)
     for (uint64_t i = 0; i < shared_data->rows; i++) {
       for (uint64_t j = 0; j < shared_data->cols; j++) {
         matrix_copy[i][j] = matrix[i][j];
@@ -181,7 +184,7 @@ void simulate(uint64_t* states, uint64_t thread_count,
           double cell = matrix_copy[i][j];
           double cells_around = matrix_copy[i-1][j] + matrix_copy[i][j+1] +
             matrix_copy[i+1][j] + matrix_copy[i][j-1];
-          double new_temp = cell + (delta_t * alpha / (h * h)) *
+          double new_temp = cell + (delta * alpha / (h * h)) *
             (cells_around - 4 * cell);
           matrix[i][j] = new_temp;
 

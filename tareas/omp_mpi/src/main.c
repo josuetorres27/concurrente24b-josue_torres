@@ -4,37 +4,41 @@
 
 /**
  * @file main.c
- * @brief Programa para realizar simulaciones de propagación de calor en una
- * lámina.
+ * @brief Program to perform heat propagation simulations on a plate.
  *
- * @details El programa lee las dimensiones y valores iniciales de temperatura
- * de una lámina desde un archivo binario, realiza una simulación de
- * propagación de calor para encontrar el momento de equilibro térmico, y
- * genera archivos de reporte y salida con los resultados. Los hilos ingresados
- * realizan operaciones sobre un determinado número de filas de la lámina.
+ * @details The program reads the dimensions and initial temperature values of
+ * a plate from a binary file, performs a heat propagation simulation to find
+ * the moment of thermal equilibrium, and generates report and output files
+ * with the results. The entered threads perform operations on a given number
+ * of rows of the plate.
  */
 
 /**
- * @brief Función principal para ejecutar las simulaciones térmicas utilizando
- * múltiples hilos.
+ * @brief Main function to run thermal simulations using multiple threads.
  *
- * @details La función toma como entrada un archivo de trabajo que contiene las
- * especificaciones de varias simulaciones térmicas a realizar. Cada línea en
- * el archivo contiene información sobre un trabajo de simulación. El programa
- * puede utilizar una cantidad de hilos especificada por el usuario o detectar
- * el número de procesadores disponibles para determinar la cantidad de hilos a
- * crear. Se utiliza la cantidad de hilos ingresada para hacer operaciones
- * sobre la matriz, repartiendo el trabajo de forma equitativa entre ellos.
- *
- * @param argc Cantidad de argumentos pasados por línea de comandos.
- * @param argv Argumentos de línea de comandos.
+ * @details The function takes as input a job file containing the
+ * specifications of several thermal simulations to be performed. Each line in
+ * the file contains information about a simulation job. The program can use a
+ * user-specified number of threads or detect the number of available
+ * processors to determine the number of threads to create. The number of
+ * threads entered is used to perform operations on the array, distributing the
+ * work equally among them.
  */
 int main(int argc, char *argv[]) {
   double start_time = omp_get_wtime();  ///< OpenMP timing.
 
   // Verify command line arguments.
   if (argc < 4 || argc > 5) {
-    fprintf(stderr, "Usage: <job file> <input dir> <output dir> "
+    /**
+     * If you want to compile the program with the Makefile in the root
+     * directory "omp_mpi", you must run the program as follows:
+     * bin/omp_mpi job001.txt test/job001/input test/job001/output 4
+     *
+     * The "job" file can be replaced by the desired job number, as well as
+     * the thread count (it will use as many threads as available CPUs if the
+     * thread count is not provided).
+     */
+    fprintf(stderr, "Usage: bin/omp_mpi <job file> <input dir> <output dir> "
       "<thread_count>\n");
     return 11;
   }

@@ -1,18 +1,18 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
 #include "heat_simulation.h"
 
 /**
- * @brief Cuenta el número de líneas no vacías en un archivo de texto.
- * 
- * @param bin_name Puntero al archivo abierto que contiene el trabajo.
- * @return uint64_t Número de líneas no vacías en el archivo.
+ * @brief Counts the number of non-empty lines in a text file.
+ *
+ * @param bin_name Pointer to the open file containing the job.
+ * @return uint64_t Number of non-empty lines in the file.
  */
 uint64_t count_job_lines(FILE* bin_name) {
   char line[256];
   uint64_t line_count = 0;
   while (fgets(line, sizeof(line), bin_name)) {
-    /** Verifica si la línea no está vacía. */
+    // Checks if the line is not empty.
     if (line[0] != '\n' && strlen(line) > 0) {
       line_count++;
     }
@@ -27,11 +27,11 @@ uint64_t count_job_lines(FILE* bin_name) {
 }
 
 /**
- * @brief Lee el contenido del archivo de trabajo y retorna sus parámetros.
- * 
- * @param job_file Nombre del archivo de trabajo a leer.
- * @param struct_count Puntero para almacenar el número de estructuras.
- * @return Estructura que contiene el contenido del archivo de trabajo.
+ * @brief Reads the contents of the job file and returns its parameters.
+ *
+ * @param job_file Name of the job file to read.
+ * @param struct_count Pointer to store the number of structures.
+ * @return Structure containing the contents of the job file.
  */
 SimData* read_job_file(const char* job_file, uint64_t* struct_count) {
   FILE* job = fopen(job_file, "r");
@@ -41,7 +41,7 @@ SimData* read_job_file(const char* job_file, uint64_t* struct_count) {
   }
   uint64_t lines_in_txt = count_job_lines(job);
   *struct_count = lines_in_txt;
-  // Asignar memoria para el arreglo de estructuras
+  // Allocate memory for the structure array.
   SimData* simulation_parameters = (SimData*) calloc(lines_in_txt,
     sizeof(SimData));
   if (!simulation_parameters) {
@@ -52,10 +52,10 @@ SimData* read_job_file(const char* job_file, uint64_t* struct_count) {
   char buffer[512];
   for (uint64_t line_number = 0; line_number < lines_in_txt; ++line_number) {
     if (fgets(buffer, sizeof(buffer), job)) {
-      /** Lee y asigna cada argumento en cada estructura. */
+      // Reads and assigns each argument in each structure.
       if (sscanf(buffer, "%255s %ld %lf %ld %lf",
         simulation_parameters[line_number].bin_name,
-        &simulation_parameters[line_number].delta_t,
+        &simulation_parameters[line_number].delta,
         &simulation_parameters[line_number].alpha,
         &simulation_parameters[line_number].h,
         &simulation_parameters[line_number].epsilon) != 5) {
@@ -70,13 +70,14 @@ SimData* read_job_file(const char* job_file, uint64_t* struct_count) {
 }
 
 /**
- * @brief Escribe los resultados de la simulación en un archivo de reporte.
- * 
- * @param report_file Nombre del archivo de reporte (.tsv).
- * @param states Número de estados hasta alcanzar el equilibrio térmico.
- * @param time Tiempo transcurrido en la simulación.
- * @param params Estructura que contiene el contenido del archivo de trabajo.
- * @param plate_filename Nombre del archivo binario asociado con la simulación.
+ * @brief Writes the simulation results to a report file.
+ *
+ * @param report_file Name of the report file (.tsv).
+ * @param states Number of states until thermal equilibrium is reached.
+ * @param time Time elapsed in the simulation.
+ * @param params Structure containing the contents of the work file.
+ * @param plate_filename Name of the binary file associated with the
+ * simulation.
  */
 void create_report(const char* report_file, uint64_t states, const char* time,
   SimData params, const char* plate_filename) {
@@ -85,28 +86,29 @@ void create_report(const char* report_file, uint64_t states, const char* time,
     perror("Error opening report file.");
     return;
   }
-  /** Escribir el reporte. */
+  // Write the report.
   fprintf(tsv_file, "%s\t%ld\t%g\t%ld\t%g\t%lu\t%s\n", plate_filename,
-    params.delta_t, params.alpha, params.h, params.epsilon, states, time);
+    params.delta, params.alpha, params.h, params.epsilon, states, time);
   fclose(tsv_file);
 }
 
 /**
- * @brief Escribe el estado final de la placa en un archivo binario.
- * 
- * @param output_dir Directorio donde se escribirá el archivo binario.
- * @param data Datos que representan la placa.
- * @param rows Número de filas en los datos.
- * @param cols Número de columnas en los datos.
- * @param states Número de estados hasta alcanzar el equilibrio.
- * @param plate_filename Nombre del archivo binario asociado con la simulación.
+ * @brief Writes the final state of the plate to a binary file.
+ *
+ * @param output_dir Directory where the binary file will be written.
+ * @param data Data representing the plate.
+ * @param rows Number of rows in the data.
+ * @param cols Number of columns in the data.
+ * @param states Number of states until equilibrium is reached.
+ * @param plate_filename Name of the binary file associated with the
+ * simulation.
  */
 void write_plate(const char* output_dir, double** data, uint64_t rows,
   uint64_t cols, uint64_t states, const char* plate_filename) {
-  /** Obtener el número de lámina. */
+  // Get plate number.
   uint64_t plate_number = 0;
   sscanf(plate_filename, "plate%03lu.bin", &plate_number);
-  /** Crear la ruta al archivo .bin. */
+  // Create route to the .bin file.
   char path_to_bin[MAX_PATH_LENGTH];
   snprintf(path_to_bin, sizeof(path_to_bin), "%s/plate%03lu-%lu.bin",
     output_dir, plate_number, states);
@@ -116,19 +118,19 @@ void write_plate(const char* output_dir, double** data, uint64_t rows,
     perror("Error opening binary file for writing.");
     return;
   }
-  /** Escribir el número de filas. */
+  // Write the number of rows.
   if (fwrite(&rows, sizeof(uint64_t), 1, file) != 1) {
     perror("Error writing binary rows.");
     fclose(file);
     return;
   }
-  /** Escribir el número de columnas. */
+  // Write the number of cols.
   if (fwrite(&cols, sizeof(uint64_t), 1, file) != 1) {
     perror("Error writing binary columns.");
     fclose(file);
     return;
   }
-  /** Escribir las temperaturas. */
+  // Write the temperatures.
   for (uint64_t i = 0; i < rows; i++) {
     if (fwrite(data[i], sizeof(double), cols, file) != cols) {
       perror("Error writing binary data.");
@@ -140,12 +142,12 @@ void write_plate(const char* output_dir, double** data, uint64_t rows,
 }
 
 /**
- * @brief Formatea el tiempo transcurrido en segundos.
- * 
- * @param seconds Tiempo en segundos.
- * @param text Cadena de caracteres donde se guarda el tiempo formateado.
- * @param capacity Capacidad de la cadena de caracteres.
- * @return Puntero a la cadena de caracteres formateada.
+ * @brief Formats elapsed time in seconds.
+ *
+ * @param seconds Time in seconds.
+ * @param text String where the formatted time is stored.
+ * @param capacity Capacity of the string.
+ * @return Pointer to the formatted string.
  */
 char* format_time(const time_t seconds, char* text, const size_t capacity) {
   const struct tm* gmt = gmtime(&seconds);  // NOLINT

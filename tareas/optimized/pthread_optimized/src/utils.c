@@ -41,7 +41,7 @@ SimData* read_job_file(const char* job_file, uint64_t* struct_count) {
   }
   uint64_t lines_in_txt = count_job_lines(job);
   *struct_count = lines_in_txt;
-  // Asignar memoria para el arreglo de estructuras
+  /** Asignar memoria para el arreglo de estructuras. */
   SimData* simulation_parameters = (SimData*) calloc(lines_in_txt,
     sizeof(SimData));
   if (!simulation_parameters) {
