@@ -14,82 +14,146 @@
  */
 void configure_simulation(const char* plate_filename, SimData params,
   const char* filepath, const char* input_dir, const char* output_dir) {
-  /** Crear la ruta hacia el archivo binario. */
-  char bin_path[257];
-  snprintf(bin_path, sizeof(bin_path), "%s/%s", input_dir, plate_filename);
-  FILE* bin_file;
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
   uint64_t rows, cols;
-  bin_file = fopen(bin_path, "rb");
-  if (!bin_file) {
-    fprintf(stderr, "Error opening binary file.\n");
-    return;
-  }
+  double **local_data = NULL;
+  uint64_t local_rows;
 
-  /** Leer los valores de la lámina. */
-  if (fread(&rows, sizeof(uint64_t), 1, bin_file) != 1) {
-    fprintf(stderr, "Error reading number of rows.\n");
-    fclose(bin_file);
-    return;
-  }
-  if (fread(&cols, sizeof(uint64_t), 1, bin_file) != 1) {
-    fprintf(stderr, "Error reading number of columns.\n");
-    fclose(bin_file);
-    return;
-  }
+  if (rank == 0) {
+    // Root process reads the input file.
+    char bin_path[257];
+    snprintf(bin_path, sizeof(bin_path), "%s/%s", input_dir, plate_filename);
+    FILE* bin_file = fopen(bin_path, "rb");
+    if (!bin_file) {
+      fprintf(stderr, "Error opening binary file.\n");
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
 
-  double** data = (double**) malloc(rows * sizeof(double*));
-  if (!data) {
-    fprintf(stderr, "Error allocating memory for plate rows.\n");
-    fclose(bin_file);
-    return;
-  }
+    fread(&rows, sizeof(uint64_t), 1, bin_file);
+    fread(&cols, sizeof(uint64_t), 1, bin_file);
 
-  for (uint64_t i = 0; i < rows; i++) {
-    data[i] = (double*) malloc(cols * sizeof(double));
-    if (!data[i]) {
-      fprintf(stderr, "Error allocating memory for plate columns.\n");
-      for (uint64_t j = 0; j < i; j++) {
-        free(data[j]);
+    // Calculate local rows for each process.
+    local_rows = (rows / size) + 2;  ///< +2 for ghost rows.
+    if (rank == size - 1) {
+      local_rows = rows - (size - 1) * (rows / size) + 2;
+    }
+
+    // Broadcast dimensions to all processes.
+    MPI_Bcast(&cols, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+
+    // Allocate and read data.
+    double** data = (double**) malloc(rows * sizeof(double*));
+    for (uint64_t i = 0; i < rows; i++) {
+      data[i] = (double*) malloc(cols * sizeof(double));
+      fread(data[i], sizeof(double), cols, bin_file);
+    }
+    fclose(bin_file);
+
+    // Distribute data to other processes.
+    for (int p = 1; p < size; p++) {
+      uint64_t p_rows = (rows / size) + 2;
+      if (p == size - 1) {
+        p_rows = rows - (size - 1) * (rows / size) + 2;
       }
-      free(data);
-      fclose(bin_file);
-      return;
+
+      for (uint64_t i = 0; i < p_rows - 2; i++) {
+        MPI_Send(data[p * (rows / size) + i], cols, MPI_DOUBLE, p, 0,
+          MPI_COMM_WORLD);
+      }
+    }
+
+    // Keep root process's portion.
+    local_data = (double**) malloc(local_rows * sizeof(double*));
+    for (uint64_t i = 0; i < local_rows; i++) {
+      local_data[i] = (double*) malloc(cols * sizeof(double));
+      if (i > 0 && i < local_rows - 1) {
+        memcpy(local_data[i], data[i-1], cols * sizeof(double));
+      }
+    }
+
+    // Clean up original data.
+    for (uint64_t i = 0; i < rows; i++) {
+      free(data[i]);
+    }
+    free(data);
+  } else {
+    // Other processes receive their portion of data.
+    MPI_Bcast(&cols, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+
+    local_rows = (rows / size) + 2;
+    if (rank == size - 1) {
+      local_rows = rows - (size - 1) * (rows / size) + 2;
+    }
+
+    local_data = (double**) malloc(local_rows * sizeof(double*));
+    for (uint64_t i = 0; i < local_rows; i++) {
+      local_data[i] = (double*) malloc(cols * sizeof(double));
+      if (i > 0 && i < local_rows - 1) {
+        MPI_Recv(local_data[i], cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
+          MPI_STATUS_IGNORE);
+      }
     }
   }
 
-  for (uint64_t i = 0; i < rows; i++) {
-    for (uint64_t j = 0; j < cols; j++) {
-      if (fread(&data[i][j], sizeof(double), 1, bin_file) != 1) {
-        fprintf(stderr, "Error reading plate data.\n");
-        for (uint64_t k = 0; k < rows; k++) {
-          free(data[k]);
-        }
-        free(data);
-        fclose(bin_file);
-        return;
-      }
-    }
-  }
-  fclose(bin_file);
-
-  /** Ejecutar la simulación. */
+  // Run simulation.
   uint64_t states = 0;
-  simulate(data, rows, cols, params, &states);
+  simulate(local_data, local_rows, cols, params, &states, rank, size);
 
-  /** Tomar el tiempo transcurrido. */
-  const time_t secs = states * params.delta_t;
-  char time[49];
-  format_time(secs, time, sizeof(time));
+  // Gather results back to root process.
+  if (rank == 0) {
+    // Process timing and create output.
+    const time_t secs = states * params.delta_t;
+    char time[49];
+    format_time(secs, time, sizeof(time));
 
-  /** Escribir la nueva placa. */
-  write_plate(output_dir, data, rows, cols, states, plate_filename);
-  for (uint64_t i = 0; i < rows; i++) {
-    free(data[i]);
+    // Allocate memory for final data.
+    double** final_data = (double**) malloc(rows * sizeof(double*));
+    for (uint64_t i = 0; i < rows; i++) {
+      final_data[i] = (double*) malloc(cols * sizeof(double));
+    }
+
+    // Copy root process data.
+    for (uint64_t i = 0; i < local_rows - 2; i++) {
+      memcpy(final_data[i], local_data[i+1], cols * sizeof(double));
+    }
+
+    // Receive data from other processes.
+    for (int p = 1; p < size; p++) {
+      uint64_t p_rows = (rows / size);
+      if (p == size - 1) {
+        p_rows = rows - (size - 1) * (rows / size);
+      }
+
+      for (uint64_t i = 0; i < p_rows; i++) {
+        MPI_Recv(final_data[p * (rows / size) + i], cols, MPI_DOUBLE, p, 1,
+          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
+    }
+
+    // Write output and create report.
+    write_plate(output_dir, final_data, rows, cols, states, plate_filename);
+    create_report(filepath, states, time, params, plate_filename);
+
+    // Clean up final data.
+    for (uint64_t i = 0; i < rows; i++) {
+      free(final_data[i]);
+    }
+    free(final_data);
+  } else {
+    // Send local results back to root.
+    for (uint64_t i = 1; i < local_rows - 1; i++) {
+      MPI_Send(local_data[i], cols, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+    }
   }
-  free(data);
 
-  /** Escribir el reporte. */
-  create_report(filepath, states, time, params, plate_filename);
+  // Clean up local data.
+  for (uint64_t i = 0; i < local_rows; i++) {
+    free(local_data[i]);
+  }
+  free(local_data);
 }
 
 /**
