@@ -1,0 +1,21 @@
+procedure main(argc, argv[]):
+  declare constant my_lucky_number = random(0, 100)
+  print("Process ", process_number, ": my lucky number is ", my_lucky_number)
+
+  declare all_min := -1
+  declare all_max := -1
+  declare all_sum := -1
+
+  // Reduce the data value from all processes to a single result value in
+  // destination process applying the given operation
+  reduce(my_lucky_number, &all_min, 1, min, 0)
+  reduce(my_lucky_number, &all_max, 1, max, 0)
+  reduce(my_lucky_number, &all_sum, 1, sum, 0)
+
+  if process_number = 0 then
+    declare constant all_average = all_sum / process_count
+    print("Process ", process_number, ": all minimum = ", all_min)
+    print("Process ", process_number, ": all average = ", all_average)
+    print("Process ", process_number, ": all maximum = ", all_max)
+  end if
+end procedure
