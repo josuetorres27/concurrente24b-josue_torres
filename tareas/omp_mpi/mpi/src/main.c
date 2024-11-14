@@ -1,4 +1,4 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
 /**
  * @file main.c
@@ -25,75 +25,113 @@
  * @return Código de retorno del programa.
  */
 int main(int argc, char* argv[]) {
-  /** Tomar el tiempo de inicio. */
-  struct timespec start_time, finish_time;
-  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &start_time);
+  int rank, size;
+  double start_time, end_time;
 
-  /**
-   * Verificar que los argumentos proporcionados en la línea de comandos sean
-   * correctos.
-   */
-  if (argc < 4 || argc > 4) {
-    /**
-     * Si se quiere compilar el programa con el Makefile en el directorio raíz
-     * "serial_optimized", se debe correr el programa de la siguiente forma:
-     * bin/serial_optimized job001.txt test/job001/input test/job001/output
-     *
-     * Los "job" pueden ser reemplazados por el número de job que se desee.
-     */
-    fprintf(stderr, "Usage: <job file> <input dir> <output dir>\n");
-    return 11;
+  // Initialize MPI.
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  // Only root process handles command line arguments and file operations.
+  if (rank == 0) {
+    if (argc != 4) {
+      fprintf(stderr, "Usage: <job file> <input dir> <output dir>\n");
+      MPI_Abort(MPI_COMM_WORLD, 11);
+      return 11;
+    }
   }
-  const char* job_filename = argv[1];
-  const char* input_dir = argv[2];
-  const char* output_dir = argv[3];
+
+  // Broadcast command line arguments to all processes.
+  char job_filename[256], input_dir[256], output_dir[256];
+  if (rank == 0) {
+    strncpy(job_filename, argv[1], sizeof(job_filename) - 1);
+    strncpy(input_dir, argv[2], sizeof(input_dir) - 1);
+    strncpy(output_dir, argv[3], sizeof(output_dir) - 1);
+  }
+  MPI_Bcast(job_filename, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(input_dir, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(output_dir, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+
+  // Start timing.
+  start_time = MPI_Wtime();
 
   uint64_t job_num = 0;
-  sscanf(job_filename, "job%03lu.txt", &job_num);
+  if (rank == 0) {
+    sscanf(job_filename, "job%03lu.txt", &job_num);
 
-  /** Crear la ruta para los archivos de entrada. */
-  char filepath[150];
-  snprintf(filepath, sizeof(filepath), "%s", output_dir);
-  char txt_path[255];
-  snprintf(txt_path, sizeof(txt_path), "%s/%s", input_dir, job_filename);
-  char report_path[255];
-  snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", filepath,
-    job_num);
-  FILE* report_file = fopen(report_path, "w");
-  if (!report_file) {
-    perror("Error opening report file.\n");
-    return 1;
+    // Create output directories and report file.
+    char filepath[150];
+    snprintf(filepath, sizeof(filepath), "%s", output_dir);
+    char report_path[255];
+    snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", filepath,
+      job_num);
+    FILE* report_file = fopen(report_path, "w");
+    if (!report_file) {
+      perror("Error opening report file.\n");
+      MPI_Abort(MPI_COMM_WORLD, 1);
+      return 1;
+    }
+    fclose(report_file);
   }
-  fclose(report_file);
 
+  // Read job file and broadcast simulation parameters.
   uint64_t struct_count = 0;
-  SimData* simulation_parameters = read_job_file(txt_path, &struct_count);
-  if (simulation_parameters == NULL) {
-    fprintf(stderr, "Error reading job file.\n");
-    return 1;
+  SimData* simulation_parameters = NULL;
+
+  if (rank == 0) {
+    char txt_path[255];
+    snprintf(txt_path, sizeof(txt_path), "%s/%s", input_dir, job_filename);
+    simulation_parameters = read_job_file(txt_path, &struct_count);
+    if (simulation_parameters == NULL) {
+      fprintf(stderr, "Error reading job file.\n");
+      MPI_Abort(MPI_COMM_WORLD, 1);
+      return 1;
+    }
   }
 
-  const char* plate_filename;
+  // Broadcast struct_count to all processes.
+  MPI_Bcast(&struct_count, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+
+  // Allocate memory for simulation parameters on other processes.
+  if (rank != 0) {
+    simulation_parameters = (SimData*)malloc(struct_count * sizeof(SimData));
+  }
+
+  // Broadcast simulation parameters to all processes.
   for (uint64_t i = 0; i < struct_count; i++) {
-    plate_filename = simulation_parameters[i].bin_name;
-    /** Ejecutar la simulación. */
-    configure_simulation(plate_filename, simulation_parameters[i], report_path,
-      input_dir, output_dir);
+    MPI_Bcast(&simulation_parameters[i], sizeof(SimData), MPI_BYTE, 0,
+      MPI_COMM_WORLD);
   }
 
-  /** Tomar el tiempo de finalización. */
-  clock_gettime(/*clk_id*/CLOCK_MONOTONIC, &finish_time);
+  // Process simulations.
+  char report_path[255];
+  if (rank == 0) {
+    snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", output_dir,
+      job_num);
+  }
 
-  /** Calcular el tiempo transcurrido en segundos y nanosegundos. */
-  double elapsed_secs = (finish_time.tv_sec - start_time.tv_sec) +
-    (finish_time.tv_nsec - start_time.tv_nsec) * 1e-9;
-  double elapsed_ns = (finish_time.tv_sec - start_time.tv_sec) * 1e9 +
-    (finish_time.tv_nsec - start_time.tv_nsec);
+  for (uint64_t i = 0; i < struct_count; i++) {
+    const char* plate_filename = simulation_parameters[i].bin_name;
+    configure_simulation(plate_filename, simulation_parameters[i],
+      report_path, input_dir, output_dir);
 
-  printf("Execution time (seconds): %.9lf\n", elapsed_secs);
-  printf("Execution time (nanoseconds): %.9lf\n", elapsed_ns);
+    // Synchronize processes after each simulation.
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
 
-  /** Liberar memoria. */
+  // End timing.
+  end_time = MPI_Wtime();
+
+  // Only root process prints timing information.
+  if (rank == 0) {
+    double elapsed_secs = end_time - start_time;
+    printf("MPI Execution time (seconds): %.9lf\n", elapsed_secs);
+    printf("Number of processes: %d\n", size);
+  }
+
+  // Clean up.
   free(simulation_parameters);
+  MPI_Finalize();
   return 0;
 }

@@ -1,4 +1,4 @@
-// Copyright 2024 Josué Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
 #include "plate.h"
 
