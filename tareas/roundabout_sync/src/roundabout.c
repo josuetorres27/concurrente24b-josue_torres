@@ -55,16 +55,16 @@ char index_to_direction(int index) {
 }
 
 /**
- * @brief Calculates the elapsed time in milliseconds since a given start time.
+ * @brief Calculates the elapsed time in nanoseconds since a given start time.
  *
- * @param start A 'timespec' structure representing the start time.
- * @return long The elapsed time in milliseconds.
+ * @param start_time A 'timespec' structure representing the start time.
+ * @return long The elapsed time in nanoseconds.
  */
-long time_since_start(struct timespec start) {
-  struct timespec now;
-  clock_gettime(CLOCK_REALTIME, &now);
-  return (now.tv_sec - start.tv_sec) * 1e3 +
-    (now.tv_nsec - start.tv_nsec) / 1e6;
+long long time_since_start(struct timespec start_time) {
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+  return (current_time.tv_sec - start_time.tv_sec) * 1000000000LL +
+    (current_time.tv_nsec - start_time.tv_nsec);
 }
 
 /**
@@ -93,7 +93,7 @@ void* vehicle_thread(void* arg) {
     direction_to_index(v->exit) == -1) {
     pthread_mutex_lock(&sim_state->print_mutex);
     fprintf(stderr, "Error: Vehicle %d has invalid entry or exit address: %c "
-      "-> %c\n", vehicle_id, v->entry, v->exit);
+      "-> %c\n", vehicle_id + 1, v->entry, v->exit);
     pthread_mutex_unlock(&sim_state->print_mutex);
     return NULL;
   }
@@ -130,8 +130,8 @@ void* vehicle_thread(void* arg) {
 
     if (sim_state->verbose_mode) {
       pthread_mutex_lock(&sim_state->print_mutex);
-      printf("%d: %c (%ld ms)\n", vehicle_id, full_path[current_index],
-        time_since_start(start_time));
+      printf("%d: %c (Time since created: %lld ns)\n", vehicle_id + 1,
+        full_path[current_index], time_since_start(start_time));
       pthread_mutex_unlock(&sim_state->print_mutex);
     }
 

@@ -85,7 +85,7 @@ typedef struct {
 // Declaration of roundabout simulation functions.
 int direction_to_index(char direction);
 char index_to_direction(int index);
-long time_since_start(struct timespec start);
+long long time_since_start(struct timespec start_time);
 void* vehicle_thread(void* arg);
 SimulationState* init_simulation(int min_time, int max_time, int verbose_mode,
   int segment_capacity);
