@@ -99,8 +99,8 @@ void* vehicle_thread(void* arg) {
   }
 
   pthread_mutex_lock(&sim_state->print_mutex);
-  //printf("Thread %d started with entry %c and exit %c\n", vehicle_id, v->entry,
-  //  v->exit);
+  // printf("Thread %d started with entry %c and exit %c\n", vehicle_id,
+  // v->entry, v->exit);
   pthread_mutex_unlock(&sim_state->print_mutex);
 
   struct timespec start_time;
@@ -122,8 +122,8 @@ void* vehicle_thread(void* arg) {
     sem_wait(&sim_state->segments[segment_index].capacity);
 
     pthread_mutex_lock(&sim_state->print_mutex);
-    //printf("Thread %d entered segment %c\n", vehicle_id,
-    //  full_path[current_index]);
+    // printf("Thread %d entered segment %c\n", vehicle_id,
+    // full_path[current_index]);
     pthread_mutex_unlock(&sim_state->print_mutex);
 
     trajectory->path[trajectory->path_index++] = full_path[current_index];
@@ -144,8 +144,8 @@ void* vehicle_thread(void* arg) {
     sem_post(&sim_state->segments[segment_index].capacity);
 
     pthread_mutex_lock(&sim_state->print_mutex);
-    //printf("Thread %d exited segment %c\n", vehicle_id,
-    //  full_path[current_index]);
+    // printf("Thread %d exited segment %c\n", vehicle_id,
+    // full_path[current_index]);
     pthread_mutex_unlock(&sim_state->print_mutex);
 
     current_index = (current_index + 1) % cycle_size;
@@ -168,7 +168,7 @@ void* vehicle_thread(void* arg) {
     }
   }
   printf("\n");
-  //printf("Thread %d finished\n", vehicle_id);
+  // printf("Thread %d finished\n", vehicle_id);
   pthread_mutex_unlock(&sim_state->print_mutex);
 
   free(thread_args);

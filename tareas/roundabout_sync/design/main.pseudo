@@ -1,0 +1,46 @@
+procedure main(argc, argv[])
+  // Parse command-line arguments
+  declare min_time := integer(argv[1]) if argc >= 3 else 0
+  declare max_time := integer(argv[2]) if argc >= 3 else 0
+  declare verbose_mode := true if argc = 4 and argv[3] = "-v" else false
+
+  // Prompt user for segment capacity
+  print("Enter the capacity of each segment: ")
+  declare segment_capacity := read_integer(stdin)
+  if segment_capacity <= 0 then
+    print("Error: Capacity must be a positive integer.", stderr)
+    return 1
+  end if
+
+  // Initialize the simulation state
+  declare sim_state := init_simulation(min_time, max_time, verbose_mode,
+    segment_capacity)
+
+  // Input vehicle data
+  print("Enter vehicles (format: input output, e.g., NE):")
+  while read(entry, exit) and sim_state.num_vehicles < MAX_VEHICLES do
+    declare vehicle := new_vehicle(sim_state.num_vehicles, entry, exit)
+    append_vehicle(sim_state, vehicle)
+  end while
+
+  // Seed the random number generator
+  seed_random(time_now())
+
+  // Create threads for each vehicle
+  declare threads := []
+  for i from 0 to sim_state.num_vehicles - 1 do
+    declare thread_args := create_thread_args(sim_state, sim_state.vehicles[i])
+    declare thread := create_thread(vehicle_thread, thread_args)
+    append(threads, thread)
+  end for
+
+  // Wait for all threads to complete
+  for thread in threads do
+    join_thread(thread)
+  end for
+
+  // Clean up simulation state
+  cleanup_simulation(sim_state)
+
+  return 0
+end procedure

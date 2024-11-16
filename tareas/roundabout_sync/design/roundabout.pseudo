@@ -1,0 +1,125 @@
+function direction_to_index(direction)
+  switch direction do
+    case 'N': return 0
+    case 'E': return 1
+    case 'S': return 2
+    case 'O': return 3
+    default: return -1
+  end switch
+end function
+
+function index_to_direction(index)
+  switch index do
+    case 0: return 'N'
+    case 1: return 'E'
+    case 2: return 'S'
+    case 3: return 'O'
+    default: return '?'
+  end switch
+end function
+
+function time_since_start(start_time)
+  declare current_time := get_current_time()
+  return (current_time.seconds - start_time.seconds) * 1_000_000_000 +
+    (current_time.nanoseconds - start_time.nanoseconds)
+end function
+
+function vehicle_thread(args)
+  declare sim_state := args.sim_state
+  declare vehicle := args.vehicle
+  declare vehicle_id := vehicle.id
+
+  initialize trajectory for vehicle_id with path_index := 0
+
+  if direction_to_index(vehicle.entry) = -1 or 
+     direction_to_index(vehicle.exit) = -1 then
+    lock(sim_state.print_mutex)
+    print_error("Vehicle has invalid entry or exit address", vehicle_id)
+    unlock(sim_state.print_mutex)
+    return null
+  end if
+
+  lock(sim_state.print_mutex)
+  print("Thread started for vehicle", vehicle_id, "entry", vehicle.entry,
+    "exit", vehicle.exit)
+  unlock(sim_state.print_mutex)
+
+  declare start_time := get_current_time()
+  declare full_path := ['N', 'O', 'S', 'E']
+  declare cycle_size := 4
+  declare start_index := find_index(full_path, vehicle.entry)
+  declare current_index := start_index
+  declare has_completed_cycle := false
+
+  repeat
+    declare segment_index := direction_to_index(full_path[current_index])
+
+    wait(sem[segment_index])
+
+    lock(sim_state.print_mutex)
+    print("Vehicle entered segment", full_path[current_index])
+    unlock(sim_state.print_mutex)
+
+    add_to_trajectory(trajectory, full_path[current_index])
+
+    if sim_state.verbose_mode then
+      lock(sim_state.print_mutex)
+      print_verbose(vehicle_id, full_path[current_index],
+        time_since_start(start_time))
+      unlock(sim_state.print_mutex)
+    end if
+
+    if sim_state.max_time > 0 then
+      declare sleep_time := random_in_range(sim_state.min_time,
+        sim_state.max_time)
+      sleep_milliseconds(sleep_time)
+    end if
+
+    signal(sem[segment_index])
+
+    lock(sim_state.print_mutex)
+    print("Vehicle exited segment", full_path[current_index])
+    unlock(sim_state.print_mutex)
+
+    current_index := (current_index + 1) % cycle_size
+    if current_index = start_index then
+      has_completed_cycle := true
+    end if
+  until has_completed_cycle or full_path[current_index] = vehicle.exit
+
+  add_to_trajectory(trajectory, vehicle.exit)
+  finalize_trajectory(trajectory)
+
+  lock(sim_state.print_mutex)
+  print_trajectory(vehicle_id, trajectory)
+  unlock(sim_state.print_mutex)
+
+  free(args)
+  return null
+end function
+
+function init_simulation(min_time, max_time, verbose_mode, segment_capacity)
+  declare sim_state := allocate(SimulationState)
+
+  sim_state.num_vehicles := 0
+  sim_state.min_time := min_time
+  sim_state.max_time := max_time
+  sim_state.verbose_mode := verbose_mode
+
+  initialize_mutex(sim_state.print_mutex)
+
+  for i from 0 to NUM_SEGMENTS - 1 do
+    sim_state.segments[i].segment_capacity := segment_capacity
+    initialize_semaphore(sim_state.segments[i].capacity, segment_capacity)
+  end for
+
+  return sim_state
+end function
+
+function cleanup_simulation(sim_state)
+  for i from 0 to NUM_SEGMENTS - 1 do
+    destroy_semaphore(sim_state.segments[i].capacity)
+  end for
+  destroy_mutex(sim_state.print_mutex)
+  free(sim_state)
+end function
