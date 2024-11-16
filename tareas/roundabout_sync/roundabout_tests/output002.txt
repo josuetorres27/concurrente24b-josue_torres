@@ -1,0 +1,100 @@
+0 OO: O S E N O
+1 OE: O S E
+2 OO: O S E N O
+3 EN: E N
+4 SE: S E
+5 ES: E N O S
+6 NS: N O S
+7 NS: N O S
+8 NS: N O S
+9 EO: E N O
+10 OO: O S E N O
+11 NN: N O S E N
+12 EE: E N O S E
+13 NE: N O S E
+14 NO: N O
+15 OO: O S E N O
+16 EN: E N
+17 SS: S E N O S
+18 NN: N O S E N
+19 NE: N O S E
+20 EO: E N O
+21 OE: O S E
+22 NO: N O
+23 EN: E N
+24 SO: S E N O
+25 ON: O S E N
+26 NO: N O
+27 EN: E N
+28 OE: O S E
+29 EO: E N O
+30 SE: S E
+31 SO: S E N O
+32 OO: O S E N O
+33 ES: E N O S
+34 NS: N O S
+35 ES: E N O S
+36 SS: S E N O S
+37 OO: O S E N O
+38 SE: S E
+39 ON: O S E N
+40 SS: S E N O S
+41 EN: E N
+42 OO: O S E N O
+43 SE: S E
+44 EN: E N
+45 NN: N O S E N
+46 SS: S E N O S
+47 NE: N O S E
+48 OS: O S
+49 NN: N O S E N
+50 SE: S E
+51 EO: E N O
+52 SE: S E
+53 NE: N O S E
+54 NS: N O S
+55 SN: S E N
+56 EO: E N O
+57 EO: E N O
+58 ON: O S E N
+59 OS: O S
+60 ON: O S E N
+61 SE: S E
+62 EO: E N O
+63 EO: E N O
+64 SS: S E N O S
+65 EN: E N
+66 SE: S E
+67 SO: S E N O
+68 OS: O S
+69 ON: O S E N
+70 OE: O S E
+71 SN: S E N
+72 NO: N O
+73 SS: S E N O S
+74 NO: N O
+75 OE: O S E
+76 NN: N O S E N
+77 NE: N O S E
+78 OO: O S E N O
+79 SO: S E N O
+80 NO: N O
+81 EO: E N O
+82 NE: N O S E
+83 OS: O S
+84 SO: S E N O
+85 NN: N O S E N
+86 SN: S E N
+87 SN: S E N
+88 SO: S E N O
+89 ON: O S E N
+90 SN: S E N
+91 OE: O S E
+92 EO: E N O
+93 NO: N O
+94 NN: N O S E N
+95 ES: E N O S
+96 SO: S E N O
+97 ON: O S E N
+98 NS: N O S
+99 SN: S E N

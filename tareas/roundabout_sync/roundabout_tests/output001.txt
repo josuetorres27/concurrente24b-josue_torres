@@ -1,0 +1,4 @@
+1 EO: E N O
+2 SE: S E
+3 NN: N O S E N
+4 ON: O S E N
