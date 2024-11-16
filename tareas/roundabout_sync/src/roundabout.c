@@ -1,5 +1,27 @@
+// Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
+
+/**
+ * @file roundabout.c
+ * @brief Implements the simulation logic for the roundabout traffic system.
+ *
+ * @details This file contains utility functions, threading logic, and the main
+ * simulation setup for vehicles in the roundabout.
+ */
+
 #include "roundabout.h"
 
+/**
+ * @brief Converts a direction character to its corresponding index.
+ *
+ * @details The mapping is as follows:
+ * - 'N' -> 0
+ * - 'E' -> 1
+ * - 'S' -> 2
+ * - 'O' -> 3
+ *
+ * @param direction A character representing a direction ('N', 'E', 'S', 'O').
+ * @return int The index of the direction, or -1 if the input is invalid.
+ */
 int direction_to_index(char direction) {
   switch (direction) {
     case 'N': return 0;
@@ -10,6 +32,18 @@ int direction_to_index(char direction) {
   return -1;
 }
 
+/**
+ * @brief Converts a direction index to its corresponding character.
+ *
+ * @details The mapping is as follows:
+ * - 0 -> 'N'
+ * - 1 -> 'E'
+ * - 2 -> 'S'
+ * - 3 -> 'O'
+ *
+ * @param index An integer representing a direction index (0-3).
+ * @return char Character for the direction, or '?' if the index is invalid.
+ */
 char index_to_direction(int index) {
   switch (index) {
     case 0: return 'N';
@@ -20,6 +54,12 @@ char index_to_direction(int index) {
   return '?';
 }
 
+/**
+ * @brief Calculates the elapsed time in milliseconds since a given start time.
+ *
+ * @param start A 'timespec' structure representing the start time.
+ * @return long The elapsed time in milliseconds.
+ */
 long time_since_start(struct timespec start) {
   struct timespec now;
   clock_gettime(CLOCK_REALTIME, &now);
@@ -27,6 +67,18 @@ long time_since_start(struct timespec start) {
     (now.tv_nsec - start.tv_nsec) / 1e6;
 }
 
+/**
+ * @brief Thread function for simulating a vehicle's movement through the
+ * roundabout.
+ *
+ * @details Each thread represents a vehicle, which follows its trajectory
+ * through the roundabout, entering and exiting segments while respecting
+ * capacity constraints.
+ *
+ * @param arg A pointer to a 'ThreadArgs' structure containing simulation state
+ * and vehicle information.
+ * @return void* Always returns 'NULL'.
+ */
 void* vehicle_thread(void* arg) {
   ThreadArgs* thread_args = (ThreadArgs*) arg;
   SimulationState* sim_state = thread_args->sim_state;
@@ -40,8 +92,8 @@ void* vehicle_thread(void* arg) {
   if (direction_to_index(v->entry) == -1 ||
     direction_to_index(v->exit) == -1) {
     pthread_mutex_lock(&sim_state->print_mutex);
-    fprintf(stderr, "Error: Vehicle %d has invalid entry or exit address: "
-      "%c -> %c\n", vehicle_id, v->entry, v->exit);
+    fprintf(stderr, "Error: Vehicle %d has invalid entry or exit address: %c "
+      "-> %c\n", vehicle_id, v->entry, v->exit);
     pthread_mutex_unlock(&sim_state->print_mutex);
     return NULL;
   }
@@ -101,7 +153,6 @@ void* vehicle_thread(void* arg) {
     if (current_index == start_index) {
       has_completed_cycle = 1;
     }
-
   } while (!has_completed_cycle && full_path[current_index] != v->exit);
 
   trajectory->path[trajectory->path_index++] = v->exit;
@@ -117,6 +168,18 @@ void* vehicle_thread(void* arg) {
   return NULL;
 }
 
+/**
+ * @brief Initializes the simulation state.
+ *
+ * @details Allocates memory for the simulation state, sets up segment
+ * capacities, and initializes necessary synchronization mechanisms.
+ *
+ * @param min_time Minimum simulation time per segment.
+ * @param max_time Maximum simulation time per segment.
+ * @param verbose_mode Enables detailed logging if set to non-zero.
+ * @param segment_capacity The capacity of each segment in the roundabout.
+ * @return SimulationState* A pointer to the initialized simulation state.
+ */
 SimulationState* init_simulation(int min_time, int max_time, int verbose_mode,
   int segment_capacity) {
   SimulationState* sim_state = malloc(sizeof(SimulationState));
@@ -136,6 +199,14 @@ SimulationState* init_simulation(int min_time, int max_time, int verbose_mode,
   return sim_state;
 }
 
+/**
+ * @brief Cleans up the simulation state.
+ *
+ * @details Destroys all synchronization mechanisms and frees allocated memory
+ * for the simulation state.
+ *
+ * @param sim_state A pointer to the simulation state to be cleaned up.
+ */
 void cleanup_simulation(SimulationState* sim_state) {
   for (int i = 0; i < NUM_SEGMENTS; i++) {
     sem_destroy(&sim_state->segments[i].capacity);
