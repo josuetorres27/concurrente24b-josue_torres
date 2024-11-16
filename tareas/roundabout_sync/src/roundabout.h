@@ -12,7 +12,7 @@
 #include <string.h>
 
 #define NUM_SEGMENTS 4  ///< Number of segments in the roundabout.
-#define MAX_VEHICLES 100  ///< Maximum number of vehicles in the roundabout.
+#define MAX_VEHICLES 2000  ///< Maximum number of vehicles in the roundabout.
 
 /**
  * @struct Segment
@@ -60,15 +60,15 @@ typedef struct {
  * and configuration settings.
  */
 typedef struct {
+  int min_time;  ///< Minimum time a vehicle spends in a segment.
+  int max_time;  ///< Maximum time a vehicle spends in a segment.
+  int verbose_mode;  ///< Flag to enable verbose logging (1 for enabled).
+  int num_vehicles;  ///< Current number of vehicles in the simulation.
+  pthread_mutex_t print_mutex;  ///< Mutex for synchronizing print operations.
   Segment segments[NUM_SEGMENTS];  ///< Array of segments in the roundabout.
   Vehicle vehicles[MAX_VEHICLES];  ///< Array of vehicles in the simulation.
   // Array of trajectories for each vehicle.
   Trajectory trajectories[MAX_VEHICLES];
-  int num_vehicles;  ///< Current number of vehicles in the simulation.
-  pthread_mutex_t print_mutex;  ///< Mutex for synchronizing print operations.
-  int min_time;  ///< Minimum time a vehicle spends in a segment.
-  int max_time;  ///< Maximum time a vehicle spends in a segment.
-  int verbose_mode;  ///< Flag to enable verbose logging (1 for enabled).
 } SimulationState;
 
 /**

@@ -99,8 +99,8 @@ void* vehicle_thread(void* arg) {
   }
 
   pthread_mutex_lock(&sim_state->print_mutex);
-  printf("Thread %d started with entry %c and exit %c\n", vehicle_id, v->entry,
-    v->exit);
+  //printf("Thread %d started with entry %c and exit %c\n", vehicle_id, v->entry,
+  //  v->exit);
   pthread_mutex_unlock(&sim_state->print_mutex);
 
   struct timespec start_time;
@@ -122,16 +122,16 @@ void* vehicle_thread(void* arg) {
     sem_wait(&sim_state->segments[segment_index].capacity);
 
     pthread_mutex_lock(&sim_state->print_mutex);
-    printf("Thread %d entered segment %c\n", vehicle_id,
-      full_path[current_index]);
+    //printf("Thread %d entered segment %c\n", vehicle_id,
+    //  full_path[current_index]);
     pthread_mutex_unlock(&sim_state->print_mutex);
 
     trajectory->path[trajectory->path_index++] = full_path[current_index];
 
     if (sim_state->verbose_mode) {
       pthread_mutex_lock(&sim_state->print_mutex);
-      printf("Verbose: Thread %d in segment %c at %ld ms\n",
-        vehicle_id, full_path[current_index], time_since_start(start_time));
+      printf("%d: %c (%ld ms)\n", vehicle_id, full_path[current_index],
+        time_since_start(start_time));
       pthread_mutex_unlock(&sim_state->print_mutex);
     }
 
@@ -144,8 +144,8 @@ void* vehicle_thread(void* arg) {
     sem_post(&sim_state->segments[segment_index].capacity);
 
     pthread_mutex_lock(&sim_state->print_mutex);
-    printf("Thread %d exited segment %c\n", vehicle_id,
-      full_path[current_index]);
+    //printf("Thread %d exited segment %c\n", vehicle_id,
+    //  full_path[current_index]);
     pthread_mutex_unlock(&sim_state->print_mutex);
 
     current_index = (current_index + 1) % cycle_size;
@@ -159,9 +159,16 @@ void* vehicle_thread(void* arg) {
   trajectory->path[trajectory->path_index] = '\0';
 
   pthread_mutex_lock(&sim_state->print_mutex);
-  printf("Vehicle %d trajectory: %s\n", trajectory->vehicle_id,
-    trajectory->path);
-  printf("Thread %d finished\n", vehicle_id);
+  // Print the formatted output.
+  printf("%d %c%c: ", trajectory->vehicle_id + 1, v->entry, v->exit);
+  for (int i = 0; i < trajectory->path_index; i++) {
+    printf("%c", trajectory->path[i]);
+    if (i < trajectory->path_index - 1) {
+      printf(" ");
+    }
+  }
+  printf("\n");
+  //printf("Thread %d finished\n", vehicle_id);
   pthread_mutex_unlock(&sim_state->print_mutex);
 
   free(thread_args);
