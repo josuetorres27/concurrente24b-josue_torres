@@ -3,256 +3,222 @@
 #include "plate.h"
 
 /**
- * @brief Lee el archivo binario de la placa, crea los datos y llama a las
- * funciones para ejecutar la simulación y escribir los archivos de salida.
+ * @brief Simulates heat transfer across a plate until equilibrium is reached.
  *
- * @param plate_filename Nombre del archivo binario que contiene los datos.
- * @param params Estructura que contiene los parámetros de la simulación.
- * @param filepath Ruta donde se guardarán el reporte y los archivos de salida.
- * @param input_dir Directorio donde se encuentra el archivo binario.
- * @param output_dir Directorio donde se guardará el archivo binario de salida.
+ * @param shared_data Pointer to a structure containing the simulation
+ * parameters and matrices.
+ * @param rank The MPI rank of the current process.
+ * @param size The total number of MPI processes.
+ * @return The total number of simulation steps executed.
  */
-void configure_simulation(const char* plate_filename, SimData params,
-  const char* filepath, const char* input_dir, const char* output_dir) {
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  uint64_t rows, cols;
-  double **local_data = NULL;
-  uint64_t local_rows;
-
-  if (rank == 0) {
-    // Root process reads the input file.
-    char bin_path[257];
-    snprintf(bin_path, sizeof(bin_path), "%s/%s", input_dir, plate_filename);
-    FILE* bin_file = fopen(bin_path, "rb");
-    if (!bin_file) {
-      fprintf(stderr, "Error opening binary file.\n");
-      MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-
-    fread(&rows, sizeof(uint64_t), 1, bin_file);
-    fread(&cols, sizeof(uint64_t), 1, bin_file);
-
-    // Calculate local rows for each process.
-    local_rows = (rows / size) + 2;  ///< +2 for ghost rows.
-    if (rank == size - 1) {
-      local_rows = rows - (size - 1) * (rows / size) + 2;
-    }
-
-    // Broadcast dimensions to all processes.
-    MPI_Bcast(&cols, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-
-    // Allocate and read data.
-    double** data = (double**) malloc(rows * sizeof(double*));
-    for (uint64_t i = 0; i < rows; i++) {
-      data[i] = (double*) malloc(cols * sizeof(double));
-      fread(data[i], sizeof(double), cols, bin_file);
-    }
-    fclose(bin_file);
-
-    // Distribute data to other processes.
-    for (int p = 1; p < size; p++) {
-      uint64_t p_rows = (rows / size) + 2;
-      if (p == size - 1) {
-        p_rows = rows - (size - 1) * (rows / size) + 2;
-      }
-
-      for (uint64_t i = 0; i < p_rows - 2; i++) {
-        MPI_Send(data[p * (rows / size) + i], cols, MPI_DOUBLE, p, 0,
-          MPI_COMM_WORLD);
-      }
-    }
-
-    // Keep root process's portion.
-    local_data = (double**) malloc(local_rows * sizeof(double*));
-    for (uint64_t i = 0; i < local_rows; i++) {
-      local_data[i] = (double*) malloc(cols * sizeof(double));
-      if (i > 0 && i < local_rows - 1) {
-        memcpy(local_data[i], data[i-1], cols * sizeof(double));
-      }
-    }
-
-    // Clean up original data.
-    for (uint64_t i = 0; i < rows; i++) {
-      free(data[i]);
-    }
-    free(data);
-  } else {
-    // Other processes receive their portion of data.
-    MPI_Bcast(&cols, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-
-    local_rows = (rows / size) + 2;
-    if (rank == size - 1) {
-      local_rows = rows - (size - 1) * (rows / size) + 2;
-    }
-
-    local_data = (double**) malloc(local_rows * sizeof(double*));
-    for (uint64_t i = 0; i < local_rows; i++) {
-      local_data[i] = (double*) malloc(cols * sizeof(double));
-      if (i > 0 && i < local_rows - 1) {
-        MPI_Recv(local_data[i], cols, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD,
-          MPI_STATUS_IGNORE);
-      }
+uint64_t simulate(SharedData* shared_data, int rank, int size) {
+  // Initialize the temporary matrix for pointer swapping.
+  for (uint64_t i = 0; i < shared_data->rows; i++) {
+    for (uint64_t j = 0; j < shared_data->cols; j++) {
+      shared_data->temp_matrix[i][j] = shared_data->matrix[i][j];
     }
   }
 
-  // Run simulation.
-  uint64_t states = 0;
-  simulate(local_data, local_rows, cols, params, &states, rank, size);
+  uint64_t total_sim_states = 0;
+  bool global_eq_point = false;  // Global equilibrium flag.
+  bool local_eq_point;           // Local equilibrium flag.
 
-  // Gather results back to root process.
-  if (rank == 0) {
-    // Process timing and create output.
-    const time_t secs = states * params.delta_t;
-    char time[49];
-    format_time(secs, time, sizeof(time));
+  // Broadcast shared parameters to all MPI processes.
+  MPI_Bcast(&shared_data->rows, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->cols, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->delta, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->alpha, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->h, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->epsilon, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&shared_data->alpha_delta, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // Allocate memory for final data.
-    double** final_data = (double**) malloc(rows * sizeof(double*));
-    for (uint64_t i = 0; i < rows; i++) {
-      final_data[i] = (double*) malloc(cols * sizeof(double));
-    }
+  // Determine the range of rows handled by each process.
+  uint64_t rows_per_process = (shared_data->rows - 2) / size;
+  uint64_t start_row = rank * rows_per_process + 1;
+  uint64_t final_row = (rank == size - 1) ? shared_data->rows - 1 : start_row +
+    rows_per_process;
 
-    // Copy root process data.
-    for (uint64_t i = 0; i < local_rows - 2; i++) {
-      memcpy(final_data[i], local_data[i+1], cols * sizeof(double));
-    }
+  while (!global_eq_point) {
+    total_sim_states++;
+    local_eq_point = true;
 
-    // Receive data from other processes.
-    for (int p = 1; p < size; p++) {
-      uint64_t p_rows = (rows / size);
-      if (p == size - 1) {
-        p_rows = rows - (size - 1) * (rows / size);
+    // Perform simulation step for the local rows.
+    for (uint64_t i = start_row; i < final_row; i++) {
+      for (uint64_t j = 1; j < shared_data->cols - 1; j++) {
+        double current_temperature = shared_data->matrix[i][j];
+        double surroundings_temperature = shared_data->matrix[i - 1][j] +
+          shared_data->matrix[i + 1][j] + shared_data->matrix[i][j - 1] +
+            shared_data->matrix[i][j + 1];
+        double new_temperature = current_temperature +
+          shared_data->alpha_delta * (surroundings_temperature - 4 *
+            current_temperature);
+        shared_data->temp_matrix[i][j] = new_temperature;
+
+        if (fabs(new_temperature - current_temperature) >=
+          shared_data->epsilon) {
+          local_eq_point = false;
+        }
       }
-
-      for (uint64_t i = 0; i < p_rows; i++) {
-        MPI_Recv(final_data[p * (rows / size) + i], cols, MPI_DOUBLE, p, 1,
-          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      }
     }
 
-    // Write output and create report.
-    write_plate(output_dir, final_data, rows, cols, states, plate_filename);
-    create_report(filepath, states, time, params, plate_filename);
+    // Exchange boundary rows with neighboring processes.
+    if (rank > 0) {
+      MPI_Send(shared_data->temp_matrix[start_row], shared_data->cols,
+        MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD);
+      MPI_Recv(shared_data->temp_matrix[start_row - 1], shared_data->cols,
+        MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    if (rank < size - 1) {
+      MPI_Send(shared_data->temp_matrix[final_row - 1], shared_data->cols,
+        MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD);
+      MPI_Recv(shared_data->temp_matrix[final_row], shared_data->cols,
+        MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
 
-    // Clean up final data.
-    for (uint64_t i = 0; i < rows; i++) {
-      free(final_data[i]);
-    }
-    free(final_data);
-  } else {
-    // Send local results back to root.
-    for (uint64_t i = 1; i < local_rows - 1; i++) {
-      MPI_Send(local_data[i], cols, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
-    }
+    // Check for global equilibrium across all processes.
+    bool local_eq = local_eq_point;
+    bool global_eq;
+    MPI_Allreduce(&local_eq, &global_eq, 1, MPI_C_BOOL, MPI_LAND,
+      MPI_COMM_WORLD);
+    global_eq_point = global_eq;
+
+    // Swap the matrices for the next iteration.
+    double** temp = shared_data->matrix;
+    shared_data->matrix = shared_data->temp_matrix;
+    shared_data->temp_matrix = temp;
   }
 
-  // Clean up local data.
-  for (uint64_t i = 0; i < local_rows; i++) {
-    free(local_data[i]);
-  }
-  free(local_data);
+  return total_sim_states;
 }
 
 /**
- * @brief Ejecuta la simulación térmica en cada lámina hasta que se alcance el
- * equilibrio térmico.
+ * @brief Reads a binary plate file and initializes the simulation environment.
  *
- * @param data Datos que representan el estado inicial de la lámina.
- * @param rows Número de filas de la matriz.
- * @param cols Número de columnas de la matriz.
- * @param params Estructura que contiene los parámetros de la simulación.
- * @param states Puntero para almacenar el número de iteraciones necesarias
- * para alcanzar el equilibrio.
+ * @param dir Directory containing the binary files.
+ * @param sim_params Array of simulation parameter structures.
+ * @param lines Number of simulation entries to process.
+ * @param job_name Name of the job file for reporting.
+ * @param rank The MPI rank of the current process.
+ * @param size The total number of MPI processes.
  */
-void simulate(double** local_data, uint64_t local_rows, uint64_t cols,
-  SimData params, uint64_t* states, int rank, int size) {
-  MPI_Status status;
-  const int top = (rank == 0) ? MPI_PROC_NULL : rank - 1;
-  const int bottom = (rank == size - 1) ? MPI_PROC_NULL : rank + 1;
-
-  // Allocate memory for ghost rows and computation buffer.
-  double* top_ghost = (double*) malloc(cols * sizeof(double));
-  double* bottom_ghost = (double*) malloc(cols * sizeof(double));
-  double** local_copy = (double**) malloc(local_rows * sizeof(double*));
-
-  for (uint64_t i = 0; i < local_rows; i++) {
-    local_copy[i] = (double*) malloc(cols * sizeof(double));
-    if (!local_copy[i]) {
-      fprintf(stderr, "Error allocating memory for local copy.\n");
-      MPI_Abort(MPI_COMM_WORLD, 1);
-    }
+void read_plate(const char* dir, SimData* sim_params, uint64_t lines,
+  const char* job_name, int rank, int size) {
+  FILE *bin_file;
+  char file_path[512];
+  SharedData* shared_data = malloc(sizeof(SharedData));
+  if (!shared_data) {
+    fprintf(stderr, "Failed to allocate memory for shared_data.\n");
+    return;
   }
 
-  uint64_t state = 0;
-  double local_max_epsilon, global_max_epsilon;
-  global_max_epsilon = params.epsilon + 1;
+  uint64_t* sim_states_array = malloc(lines * sizeof(uint64_t));
+  if (!sim_states_array) {
+    fprintf(stderr, "Failed to allocate memory for simulation states.\n");
+    free(shared_data);
+    return;
+  }
 
-  // Main simulation loop.
-  while (global_max_epsilon > params.epsilon) {
-    local_max_epsilon = 0.0;
-    state++;
+  for (uint64_t i = 0; i < lines; i++) {
+    snprintf(file_path, sizeof(file_path), "%s/%s", dir,
+      sim_params[i].bin_name);
+    bin_file = fopen(file_path, "rb");
+    if (!bin_file) {
+      fprintf(stderr, "Failed to open binary file: %s.\n",
+        sim_params[i].bin_name);
+      free(sim_states_array);
+      free(shared_data);
+      return;
+    }
 
-    // Exchange ghost rows.
-    MPI_Sendrecv(local_data[1], cols, MPI_DOUBLE, top, 0, bottom_ghost, cols,
-      MPI_DOUBLE, bottom, 0, MPI_COMM_WORLD, &status);
+    fread(&shared_data->rows, sizeof(uint64_t), 1, bin_file);
+    fread(&shared_data->cols, sizeof(uint64_t), 1, bin_file);
 
-    MPI_Sendrecv(local_data[local_rows-2], cols, MPI_DOUBLE, bottom, 1,
-      top_ghost, cols, MPI_DOUBLE, top, 1, MPI_COMM_WORLD, &status);
+    shared_data->matrix = create_matrix(shared_data->rows, shared_data->cols);
+    shared_data->temp_matrix = create_matrix(shared_data->rows,
+      shared_data->cols);
+    if (!shared_data->matrix || !shared_data->temp_matrix) {
+      fprintf(stderr, "Failed to allocate memory for matrices.\n");
+      fclose(bin_file);
+      free_matrix(shared_data->matrix, shared_data->rows);
+      free_matrix(shared_data->temp_matrix, shared_data->rows);
+      free(sim_states_array);
+      free(shared_data);
+      return;
+    }
 
-    // Update interior points.
-    for (uint64_t i = 1; i < local_rows - 1; i++) {
-      for (uint64_t j = 1; j < cols - 1; j++) {
-        double cell = local_data[i][j];
-        double cells_around;
-
-        // Handle boundary cases.
-        if (i == 1 && rank > 0) {
-          cells_around = top_ghost[j] + local_data[i][j+1] +
-            local_data[i+1][j] + local_data[i][j-1];
-        } else if (i == local_rows-2 && rank < size-1) {
-          cells_around = local_data[i-1][j] + local_data[i][j+1] +
-            bottom_ghost[j] + local_data[i][j-1];
-        } else {
-          cells_around = local_data[i-1][j] + local_data[i][j+1] +
-            local_data[i+1][j] + local_data[i][j-1];
-        }
-
-        // Apply heat equation.
-        local_copy[i][j] = cell + (params.delta_t * params.alpha /
-          (params.h * params.h)) * (cells_around - 4 * cell);
-
-        // Calculate maximum difference.
-        double difference = fabs(local_copy[i][j] - cell);
-        if (difference > local_max_epsilon) {
-          local_max_epsilon = difference;
-        }
+    for (uint64_t i = 0; i < shared_data->rows; i++) {
+      if (fread(shared_data->matrix[i], sizeof(double), shared_data->cols,
+        bin_file) != shared_data->cols) {
+        fprintf(stderr, "Error reading matrix data from file: %s.\n",
+          sim_params[i].bin_name);
+        free_matrix(shared_data->matrix, shared_data->rows);
+        free_matrix(shared_data->temp_matrix, shared_data->rows);
+        fclose(bin_file);
+        free(sim_states_array);
+        free(shared_data);
+        return;
       }
     }
 
-    // Find global maximum epsilon across all processes.
-    MPI_Allreduce(&local_max_epsilon, &global_max_epsilon, 1, MPI_DOUBLE,
-      MPI_MAX, MPI_COMM_WORLD);
+    shared_data->delta = sim_params[i].delta;
+    shared_data->alpha = sim_params[i].alpha;
+    shared_data->h = sim_params[i].h;
+    shared_data->epsilon = sim_params[i].epsilon;
+    shared_data->alpha_delta = sim_params[i].delta * sim_params[i].alpha /
+      (sim_params[i].h * sim_params[i].h);
 
-    // Copy updated values back to original array.
-    for (uint64_t i = 1; i < local_rows - 1; i++) {
-      for (uint64_t j = 1; j < cols - 1; j++) {
-        local_data[i][j] = local_copy[i][j];
+    sim_states_array[i] = simulate(shared_data, rank, size);
+    write_plate(shared_data->matrix, shared_data->rows, shared_data->cols, dir,
+      sim_params[i].bin_name, sim_states_array[i]);
+
+    free_matrix(shared_data->matrix, shared_data->rows);
+    free_matrix(shared_data->temp_matrix, shared_data->rows);
+    fclose(bin_file);
+  }
+
+  create_report(dir, job_name, sim_params, sim_states_array, lines);
+  free(sim_states_array);
+  free(shared_data);
+}
+
+/**
+ * @brief Allocates memory for a matrix with the specified dimensions.
+ *
+ * @param rows Number of rows in the matrix.
+ * @param cols Number of columns in the matrix.
+ * @return Pointer to the created matrix.
+ */
+double** create_matrix(uint64_t rows, uint64_t cols) {
+  double** matrix = malloc(rows * sizeof(double*));
+  if (!matrix) {
+    fprintf(stderr, "Failed to allocate memory for matrix rows.\n");
+    return NULL;
+  }
+
+  for (uint64_t i = 0; i < rows; i++) {
+    matrix[i] = malloc(cols * sizeof(double));
+    if (!matrix[i]) {
+      fprintf(stderr, "Failed to allocate memory for matrix columns.\n");
+      for (uint64_t j = 0; j < i; j++) {
+        free(matrix[j]);
       }
+      free(matrix);
+      return NULL;
     }
   }
 
-  // Gather final number of iterations.
-  MPI_Bcast(&state, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-  *states = state;
+  return matrix;
+}
 
-  // Clean up.
-  free(top_ghost);
-  free(bottom_ghost);
-  for (uint64_t i = 0; i < local_rows; i++) {
-    free(local_copy[i]);
+/**
+ * @brief Frees the memory allocated for a matrix.
+ *
+ * @param matrix Pointer to the matrix to free.
+ * @param rows Number of rows in the matrix.
+ */
+void free_matrix(double** matrix, uint64_t rows) {
+  for (uint64_t i = 0; i < rows; i++) {
+    free(matrix[i]);
   }
-  free(local_copy);
+  free(matrix);
 }
