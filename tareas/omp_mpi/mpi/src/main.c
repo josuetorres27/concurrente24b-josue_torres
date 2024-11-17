@@ -1,137 +1,89 @@
 // Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-/**
- * @file main.c
- * @brief Programa para realizar simulaciones de propagación de calor en una
- * lámina.
- *
- * @details El programa lee las dimensiones y valores iniciales de temperatura
- * de una lámina desde un archivo binario, realiza una simulación de
- * propagación de calor para encontrar el momento de equilibro térmico, y
- * genera archivos de salida con los resultados.
- */
-
 #include "plate.h"
 
 /**
- * @brief Función principal del programa.
+ * @brief Main function for the MPI-based heat transfer simulation program.
  *
- * @details Lee el archivo de trabajo especificado, realiza la simulación de
- * propagación de calor para cada lámina, y genera archivos de reporte y de
- * salida con los resultados.
- *
- * @param argc Número de argumentos de la línea de comandos.
- * @param argv Arreglo de argumentos de la línea de comandos.
- * @return Código de retorno del programa.
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * argv[1]: Name of the job file (e.g., job001.txt).
+ * argv[2]: Directory path where the job file is located (TSV and binary files
+ * will be generated here as well).
+ * @return Returns 0 if execution is successful, or -1 if an error occurs.
  */
-int main(int argc, char* argv[]) {
-  int rank, size;
-  double start_time, end_time;
+int main(int argc, char *argv[]) {
+  // Initialize the MPI environment.
+  double total_start_time, total_end_time;
+  int rank = -1;
+  total_start_time = MPI_Wtime();
 
-  // Initialize MPI.
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (MPI_Init(&argc, &argv) == MPI_SUCCESS) {
+    int size = -1;  // Total number of processes.
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  // Only root process handles command line arguments and file operations.
-  if (rank == 0) {
-    if (argc != 4) {
-      fprintf(stderr, "Usage: <job file> <input dir> <output dir>\n");
-      MPI_Abort(MPI_COMM_WORLD, 11);
-      return 11;
+    // Ensure the necessary arguments are provided.
+    if (argc < 3) {
+      /**
+       * @note The program can be compiled with (in case Makefile or other
+       * compilation commands do not work):
+       *
+       * mpicc -o heat_simulation main.c plate.c utils.c -lm
+       * mpirun --oversubscribe -n 4 ./heat_simulation job001.txt ../test/job001/input  // NOLINT
+       *
+       * The "job" file can be replaced by the desired job number, as well as
+       * the process count.
+       */
+      fprintf(stderr, "Please run the program with: mpirun --oversubscribe -n "
+        "<process_count> ./<executable file name> <job file name> "
+          "<input directory>\n");
+      MPI_Finalize();
+      return -1;
     }
-  }
 
-  // Broadcast command line arguments to all processes.
-  char job_filename[256], input_dir[256], output_dir[256];
-  if (rank == 0) {
-    strncpy(job_filename, argv[1], sizeof(job_filename) - 1);
-    strncpy(input_dir, argv[2], sizeof(input_dir) - 1);
-    strncpy(output_dir, argv[3], sizeof(output_dir) - 1);
-  }
-  MPI_Bcast(job_filename, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
-  MPI_Bcast(input_dir, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
-  MPI_Bcast(output_dir, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
+    // Parse command-line arguments.
+    const char* job_name = argv[1];  // Job file name.
+    const char* dir = argv[2];       // Directory containing the job file.
 
-  // Start timing.
-  start_time = MPI_Wtime();
+    if (argc == 3) {
+      uint64_t lines = 0;
+      double read_job_start_time, read_job_end_time;
+      double read_plate_start_time, read_plate_end_time;
 
-  uint64_t job_num = 0;
-  if (rank == 0) {
-    sscanf(job_filename, "job%03lu.txt", &job_num);
+      // Read the job file and retrieve simulation parameters.
+      read_job_start_time = MPI_Wtime();
+      SimData* sim_params = read_job_file(job_name, dir, &lines);
+      read_job_end_time = MPI_Wtime();
 
-    // Create output directories and report file.
-    char filepath[150];
-    snprintf(filepath, sizeof(filepath), "%s", output_dir);
-    char report_path[255];
-    snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", filepath,
-      job_num);
-    FILE* report_file = fopen(report_path, "w");
-    if (!report_file) {
-      perror("Error opening report file.\n");
-      MPI_Abort(MPI_COMM_WORLD, 1);
-      return 1;
+      // Process the simulation parameters using MPI.
+      read_plate_start_time = MPI_Wtime();
+      read_plate(dir, sim_params, lines, job_name, rank, size);
+      read_plate_end_time = MPI_Wtime();
+
+      // Free allocated memory for each SimData entry.
+      for (uint64_t i = 0; i < lines; i++) {
+        if (sim_params[i].bin_name != NULL) {
+          free(sim_params[i].bin_name);
+        }
+      }
+
+      // Free the array of SimData structs.
+      free(sim_params);
     }
-    fclose(report_file);
+
+    // Finalize the MPI environment.
+    MPI_Finalize();
+  } else {
+    // Error initializing MPI.
+    fprintf(stderr, "Error: Failed to initialize MPI.\n");
   }
 
-  // Read job file and broadcast simulation parameters.
-  uint64_t struct_count = 0;
-  SimData* simulation_parameters = NULL;
-
+  total_end_time = MPI_Wtime();
   if (rank == 0) {
-    char txt_path[255];
-    snprintf(txt_path, sizeof(txt_path), "%s/%s", input_dir, job_filename);
-    simulation_parameters = read_job_file(txt_path, &struct_count);
-    if (simulation_parameters == NULL) {
-      fprintf(stderr, "Error reading job file.\n");
-      MPI_Abort(MPI_COMM_WORLD, 1);
-      return 1;
-    }
+    printf("Total execution time: %f seconds\n", 
+      total_end_time - total_start_time);
   }
 
-  // Broadcast struct_count to all processes.
-  MPI_Bcast(&struct_count, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
-
-  // Allocate memory for simulation parameters on other processes.
-  if (rank != 0) {
-    simulation_parameters = (SimData*)malloc(struct_count * sizeof(SimData));
-  }
-
-  // Broadcast simulation parameters to all processes.
-  for (uint64_t i = 0; i < struct_count; i++) {
-    MPI_Bcast(&simulation_parameters[i], sizeof(SimData), MPI_BYTE, 0,
-      MPI_COMM_WORLD);
-  }
-
-  // Process simulations.
-  char report_path[255];
-  if (rank == 0) {
-    snprintf(report_path, sizeof(report_path), "%s/job%03lu.tsv", output_dir,
-      job_num);
-  }
-
-  for (uint64_t i = 0; i < struct_count; i++) {
-    const char* plate_filename = simulation_parameters[i].bin_name;
-    configure_simulation(plate_filename, simulation_parameters[i],
-      report_path, input_dir, output_dir);
-
-    // Synchronize processes after each simulation.
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-
-  // End timing.
-  end_time = MPI_Wtime();
-
-  // Only root process prints timing information.
-  if (rank == 0) {
-    double elapsed_secs = end_time - start_time;
-    printf("MPI Execution time (seconds): %.9lf\n", elapsed_secs);
-    printf("Number of processes: %d\n", size);
-  }
-
-  // Clean up.
-  free(simulation_parameters);
-  MPI_Finalize();
   return 0;
 }
