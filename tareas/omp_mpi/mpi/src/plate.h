@@ -1,7 +1,7 @@
 // Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#ifndef PLATE_H
-#define PLATE_H
+#ifndef PLATE_H  // NOLINT
+#define PLATE_H  // NOLINT
 
 // Maximum allowed length for file paths.
 #define MAX_PATH_LENGTH 1024
@@ -56,4 +56,4 @@ void write_plate(double** matrix, uint64_t rows, uint64_t cols,
 char* format_time(const time_t seconds, char* text, const size_t capacity);
 uint64_t count_job_lines(const char* bin_name);
 
-#endif  // PLATE_H
+#endif  // PLATE_H  // NOLINT

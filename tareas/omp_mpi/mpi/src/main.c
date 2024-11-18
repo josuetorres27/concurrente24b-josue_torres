@@ -1,6 +1,6 @@
 // Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"
+#include "plate.h"  // NOLINT
 
 /**
  * @brief Main function for the MPI-based heat transfer simulation program.
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 
   total_end_time = MPI_Wtime();
   if (rank == 0) {
-    printf("Total execution time: %f seconds\n", 
+    printf("Total execution time: %f seconds\n",
       total_end_time - total_start_time);
   }
 

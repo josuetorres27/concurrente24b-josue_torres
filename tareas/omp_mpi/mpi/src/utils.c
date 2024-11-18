@@ -1,6 +1,6 @@
 // Copyright 2024 Josue Torres Sibaja <josue.torressibaja@ucr.ac.cr>
 
-#include "plate.h"
+#include "plate.h"  // NOLINT
 
 /**
  * @brief Reads a job file containing simulation parameters and stores them in
