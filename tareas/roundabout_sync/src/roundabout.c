@@ -98,11 +98,6 @@ void* vehicle_thread(void* arg) {
     return NULL;
   }
 
-  pthread_mutex_lock(&sim_state->print_mutex);
-  // printf("Thread %d started with entry %c and exit %c\n", vehicle_id,
-  // v->entry, v->exit);
-  pthread_mutex_unlock(&sim_state->print_mutex);
-
   struct timespec start_time;
   clock_gettime(CLOCK_REALTIME, &start_time);
 
@@ -121,11 +116,6 @@ void* vehicle_thread(void* arg) {
 
     sem_wait(&sim_state->segments[segment_index].capacity);
 
-    pthread_mutex_lock(&sim_state->print_mutex);
-    // printf("Thread %d entered segment %c\n", vehicle_id,
-    // full_path[current_index]);
-    pthread_mutex_unlock(&sim_state->print_mutex);
-
     trajectory->path[trajectory->path_index++] = full_path[current_index];
 
     if (sim_state->verbose_mode) {
@@ -136,17 +126,12 @@ void* vehicle_thread(void* arg) {
     }
 
     if (sim_state->max_time > 0) {
-      int sleep_time = sim_state->min_time +
-        rand() % (sim_state->max_time - sim_state->min_time + 1);
+      int sleep_time = sim_state->min_time + rand() %
+        (sim_state->max_time - sim_state->min_time + 1);
       usleep(sleep_time * 1000);
     }
 
     sem_post(&sim_state->segments[segment_index].capacity);
-
-    pthread_mutex_lock(&sim_state->print_mutex);
-    // printf("Thread %d exited segment %c\n", vehicle_id,
-    // full_path[current_index]);
-    pthread_mutex_unlock(&sim_state->print_mutex);
 
     current_index = (current_index + 1) % cycle_size;
 
@@ -158,8 +143,12 @@ void* vehicle_thread(void* arg) {
   trajectory->path[trajectory->path_index++] = v->exit;
   trajectory->path[trajectory->path_index] = '\0';
 
+  pthread_mutex_lock(&sim_state->order_mutex);
+  while (trajectory->vehicle_id + 1 != sim_state->next_to_print) {
+    pthread_cond_wait(&sim_state->order_cond, &sim_state->order_mutex);
+  }
+
   pthread_mutex_lock(&sim_state->print_mutex);
-  // Print the formatted output.
   printf("%d %c%c: ", trajectory->vehicle_id + 1, v->entry, v->exit);
   for (int i = 0; i < trajectory->path_index; i++) {
     printf("%c", trajectory->path[i]);
@@ -168,8 +157,11 @@ void* vehicle_thread(void* arg) {
     }
   }
   printf("\n");
-  // printf("Thread %d finished\n", vehicle_id);
   pthread_mutex_unlock(&sim_state->print_mutex);
+
+  sim_state->next_to_print++;
+  pthread_cond_broadcast(&sim_state->order_cond);
+  pthread_mutex_unlock(&sim_state->order_mutex);
 
   free(thread_args);
   return NULL;
@@ -198,6 +190,10 @@ SimulationState* init_simulation(int min_time, int max_time, int verbose_mode,
 
   pthread_mutex_init(&sim_state->print_mutex, NULL);
 
+  sim_state->next_to_print = 1;
+  pthread_mutex_init(&sim_state->order_mutex, NULL);
+  pthread_cond_init(&sim_state->order_cond, NULL);
+
   for (int i = 0; i < NUM_SEGMENTS; i++) {
     sim_state->segments[i].segment_capacity = segment_capacity;
     sem_init(&sim_state->segments[i].capacity, 0, segment_capacity);
@@ -219,5 +215,9 @@ void cleanup_simulation(SimulationState* sim_state) {
     sem_destroy(&sim_state->segments[i].capacity);
   }
   pthread_mutex_destroy(&sim_state->print_mutex);
+
+  pthread_mutex_destroy(&sim_state->order_mutex);
+  pthread_cond_destroy(&sim_state->order_cond);
+
   free(sim_state);
 }

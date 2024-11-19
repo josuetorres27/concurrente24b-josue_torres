@@ -64,7 +64,10 @@ typedef struct {
   int max_time;  ///< Maximum time a vehicle spends in a segment.
   int verbose_mode;  ///< Flag to enable verbose logging (1 for enabled).
   int num_vehicles;  ///< Current number of vehicles in the simulation.
-  pthread_mutex_t print_mutex;  ///< Mutex for synchronizing print operations.
+  int next_to_print;  ///< Indicates the next thread that can print.
+  pthread_cond_t order_cond;  ///< Mutex for synchronizing print operations.
+  pthread_mutex_t print_mutex;  ///< Mutex to prevent simultaneous printing.
+  pthread_mutex_t order_mutex;  ///< Mutex to control the printing order.
   Segment segments[NUM_SEGMENTS];  ///< Array of segments in the roundabout.
   Vehicle vehicles[MAX_VEHICLES];  ///< Array of vehicles in the simulation.
   // Array of trajectories for each vehicle.
