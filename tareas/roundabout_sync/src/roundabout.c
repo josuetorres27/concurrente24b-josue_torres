@@ -126,7 +126,7 @@ void* vehicle_thread(void* arg) {
     }
 
     if (sim_state->max_time > 0) {
-      int sleep_time = sim_state->min_time + rand() %
+      int sleep_time = sim_state->min_time + rand() %  // NOLINT
         (sim_state->max_time - sim_state->min_time + 1);
       usleep(sleep_time * 1000);
     }
